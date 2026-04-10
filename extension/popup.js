@@ -37,24 +37,24 @@ function renderFeedback(message, tone = "success") {
 
 function renderStatus(settings, health = null) {
   const connected = settings.connected && settings.serverReachable;
-  statusBadge.textContent = connected ? "Connected" : settings.serverReachable ? "Session offline" : "Bridge offline";
+  statusBadge.textContent = connected ? "Підключено" : settings.serverReachable ? "Сесія офлайн" : "Bridge офлайн";
   statusBadge.className = `status ${connected ? "connected" : "disconnected"}`;
   transportMeta.textContent = settings.serverReachable
     ? health?.extensionConnected
-      ? "Server reachable and paired"
-      : "Server reachable, waiting for session"
-    : "Transport offline";
-  lastCommand.textContent = settings.lastCommand || "No commands yet";
+      ? "Сервер доступний і сесію підключено"
+      : "Сервер доступний, очікування сесії"
+    : "Транспорт недоступний";
+  lastCommand.textContent = settings.lastCommand || "Команд ще не було";
   sessionMeta.textContent = health?.connectedSession?.connectedAt
-    ? `Connected at ${new Date(health.connectedSession.connectedAt).toLocaleString()}`
+    ? `Підключено: ${new Date(health.connectedSession.connectedAt).toLocaleString("uk-UA")}`
     : settings.serverReachable
-      ? "Bridge server is online, but this browser session is not paired."
-      : "No active browser bridge session.";
+      ? "Bridge server онлайн, але ця browser-сесія ще не підключена."
+      : "Немає активної bridge-сесії браузера.";
 }
 
 function renderTab(activeTab) {
-  tabTitle.textContent = activeTab?.title || "No active tab";
-  tabUrl.textContent = activeTab?.url || "Open a tab to inspect its domain.";
+  tabTitle.textContent = activeTab?.title || "Немає активної вкладки";
+  tabUrl.textContent = activeTab?.url || "Відкрий вкладку, щоб перевірити її домен.";
 }
 
 function setBusy(isBusy) {
@@ -75,11 +75,11 @@ async function loadState() {
   if (settings.lastError) {
     renderFeedback(settings.lastError, "error");
   } else if (response.health?.extensionConnected) {
-    renderFeedback("Browser session is paired with the local bridge.", "success");
+    renderFeedback("Сесію браузера підключено до локального bridge.", "success");
   } else if (settings.serverReachable) {
-    renderFeedback("Local bridge server is online. Click connect to pair this Chrome session.", "success");
+    renderFeedback("Локальний bridge server онлайн. Натисни підключення, щоб прив’язати цю Chrome-сесію.", "success");
   } else {
-    renderFeedback("Bridge server is offline or unreachable. Start the local runner first.", "error");
+    renderFeedback("Bridge server офлайн або недоступний. Спершу запусти локальний runner.", "error");
   }
 }
 
@@ -103,21 +103,21 @@ async function performAction(action, options = {}) {
     }
     const response = await request(action);
     if (!response.success) {
-      renderFeedback(response.error || "Action failed", "error");
+      renderFeedback(response.error || "Дію не виконано", "error");
       return;
     }
 
     if (action === "connect") {
-      renderFeedback("Current Chrome session is now paired with the local bridge.", "success");
+      renderFeedback("Поточну Chrome-сесію підключено до локального bridge.", "success");
     } else if (action === "disconnect") {
-      renderFeedback("Browser session disconnected from the local bridge.", "success");
+      renderFeedback("Сесію браузера відключено від локального bridge.", "success");
     } else if (action === "allow_current_domain") {
-      renderFeedback("Current domain added to the allowlist.", "success");
+      renderFeedback("Поточний домен додано до списку дозволених.", "success");
     } else if (action === "refresh_health") {
-      renderFeedback("Bridge status refreshed from localhost.", "success");
+      renderFeedback("Статус bridge оновлено з localhost.", "success");
     }
   } catch (error) {
-    renderFeedback(error.message || "Unexpected error", "error");
+    renderFeedback(error.message || "Неочікувана помилка", "error");
   } finally {
     await loadState();
     setBusy(false);
@@ -152,7 +152,7 @@ async function init() {
   await loadState();
   refreshTimer = window.setInterval(() => {
     loadState().catch(() => {
-      renderFeedback("Unable to refresh bridge status.", "error");
+      renderFeedback("Не вдалося оновити статус bridge.", "error");
     });
   }, 5000);
 }

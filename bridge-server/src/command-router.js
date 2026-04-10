@@ -30,7 +30,10 @@ class CommandRouter {
     this.logger.add({
       scope: "command",
       command: commandBody.command,
-      domain: result.url || commandBody.url || null,
+      domain:
+        result && typeof result === "object" && !Array.isArray(result)
+          ? result.url || commandBody.url || null
+          : commandBody.url || null,
       tabId: response.tabId || commandBody.tabId || null,
       success: response.success,
       error: response.error ? response.error.message : null

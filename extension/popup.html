@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="uk">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -9,65 +9,65 @@
   <body>
     <main class="panel">
       <section class="hero">
-        <p class="eyebrow">LOCAL BROWSER BRIDGE</p>
+        <p class="eyebrow">ЛОКАЛЬНИЙ BROWSER BRIDGE</p>
         <h1>BridgeTab</h1>
-        <p class="lede">Manual-connect control deck for DOM actions, screenshots, and browser diagnostics.</p>
+        <p class="lede">Локальна панель ручного підключення для DOM-дій, скріншотів і браузерної діагностики.</p>
       </section>
 
       <section class="card status-card">
         <div>
-          <p class="label">Bridge Status</p>
-          <p id="statusBadge" class="status disconnected">Disconnected</p>
+          <p class="label">Статус Bridge</p>
+          <p id="statusBadge" class="status disconnected">Відключено</p>
         </div>
         <div class="status-meta">
-          <p id="transportMeta" class="meta">Transport offline</p>
-          <p id="lastCommand" class="meta">No commands yet</p>
+          <p id="transportMeta" class="meta">Транспорт недоступний</p>
+          <p id="lastCommand" class="meta">Команд ще не було</p>
         </div>
       </section>
 
       <section id="feedbackCard" class="card feedback hidden">
-        <p class="label">Feedback</p>
-        <p id="feedbackText" class="feedback-text">Ready.</p>
+        <p class="label">Повідомлення</p>
+        <p id="feedbackText" class="feedback-text">Готово.</p>
       </section>
 
       <section class="card">
-        <p class="label">Current Tab</p>
-        <h2 id="tabTitle">No active tab</h2>
-        <p id="tabUrl" class="url">Open a tab to inspect its domain.</p>
-        <p id="sessionMeta" class="meta session-meta">No active browser bridge session.</p>
+        <p class="label">Поточна вкладка</p>
+        <h2 id="tabTitle">Немає активної вкладки</h2>
+        <p id="tabUrl" class="url">Відкрий вкладку, щоб перевірити її домен.</p>
+        <p id="sessionMeta" class="meta session-meta">Немає активної bridge-сесії браузера.</p>
       </section>
 
       <section class="card form-card">
         <label>
-          <span>Bridge WebSocket URL</span>
+          <span>WebSocket URL Bridge</span>
           <input id="serverUrl" type="text" placeholder="ws://127.0.0.1:17888/ws" />
         </label>
         <label>
-          <span>Session Token</span>
-          <input id="token" type="password" placeholder="Paste token from local bridge server" />
+          <span>Сесійний токен</span>
+          <input id="token" type="password" placeholder="Встав токен з локального bridge server" />
         </label>
         <label>
-          <span>Allowlist Domains</span>
+          <span>Список дозволених доменів</span>
           <textarea id="allowlist" rows="4" placeholder="localhost&#10;*.test"></textarea>
         </label>
 
         <div class="toggle-row">
           <label class="switch">
             <input id="debugMode" type="checkbox" />
-            <span>Debug mode</span>
+            <span>Режим налагодження</span>
           </label>
-          <button id="allowCurrentDomain" class="ghost" type="button">Allow current domain</button>
+          <button id="allowCurrentDomain" class="ghost" type="button">Дозволити поточний домен</button>
         </div>
       </section>
 
       <section class="actions">
-        <button id="connectButton" type="button">Connect current session</button>
-        <button id="disconnectButton" class="ghost" type="button">Disconnect</button>
-        <button id="openLogsButton" class="ghost" type="button">Open logs</button>
+        <button id="connectButton" type="button">Підключити поточну сесію</button>
+        <button id="disconnectButton" class="ghost" type="button">Відключити</button>
+        <button id="openLogsButton" class="ghost" type="button">Відкрити логи</button>
       </section>
 
       <section class="actions actions-secondary">
-        <button id="refreshButton" class="ghost" type="button">Refresh status</button>
+        <button id="refreshButton" class="ghost" type="button">Оновити статус</button>
       </section>
     </main>
 

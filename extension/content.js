@@ -26,8 +26,52 @@ function findElements(selector) {
   return Array.from(document.querySelectorAll(selector));
 }
 
-function findElement(selector) {
-  return document.querySelector(selector);
+function isInViewport(element) {
+  const rect = element.getBoundingClientRect();
+  return rect.bottom > 0 && rect.right > 0 && rect.top < window.innerHeight && rect.left < window.innerWidth;
+}
+
+function viewportDistance(element) {
+  const rect = element.getBoundingClientRect();
+  const viewportCenterX = window.innerWidth / 2;
+  const viewportCenterY = window.innerHeight / 2;
+  const elementCenterX = rect.left + rect.width / 2;
+  const elementCenterY = rect.top + rect.height / 2;
+  return Math.abs(viewportCenterX - elementCenterX) + Math.abs(viewportCenterY - elementCenterY);
+}
+
+function findElement(selector, options = {}) {
+  const elements = findElements(selector).filter((element) => element?.isConnected);
+  if (!elements.length) {
+    return null;
+  }
+
+  const scored = elements.map((element, index) => ({
+    element,
+    index,
+    visible: isVisible(element),
+    inViewport: isInViewport(element),
+    enabled: isEnabled(element),
+    distance: viewportDistance(element)
+  }));
+
+  scored.sort((a, b) => {
+    if (a.visible !== b.visible) {
+      return a.visible ? -1 : 1;
+    }
+    if (a.inViewport !== b.inViewport) {
+      return a.inViewport ? -1 : 1;
+    }
+    if (a.enabled !== b.enabled) {
+      return a.enabled ? -1 : 1;
+    }
+    if (a.distance !== b.distance) {
+      return a.distance - b.distance;
+    }
+    return a.index - b.index;
+  });
+
+  return scored[0].element;
 }
 
 function isVisible(element) {
@@ -97,13 +141,42 @@ function serializeElement(element) {
   };
 }
 
-function scrollIntoViewIfNeeded(element) {
-  const rect = element.getBoundingClientRect();
+function nextFrame() {
+  return new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
+}
+
+async function scrollIntoViewIfNeeded(element) {
+  const performScroll = async () => {
+    element.scrollIntoView({ block: "center", inline: "center", behavior: "auto" });
+    await nextFrame();
+    await nextFrame();
+  };
+
+  await performScroll();
+
+  let rect = element.getBoundingClientRect();
   const verticallyVisible = rect.top >= 0 && rect.bottom <= window.innerHeight;
   const horizontallyVisible = rect.left >= 0 && rect.right <= window.innerWidth;
+
   if (!verticallyVisible || !horizontallyVisible) {
-    element.scrollIntoView({ block: "center", inline: "center", behavior: "auto" });
+    const targetY = window.scrollY + rect.top - window.innerHeight / 2 + rect.height / 2;
+    const targetX = window.scrollX + rect.left - window.innerWidth / 2 + rect.width / 2;
+    window.scrollTo({
+      top: Math.max(0, targetY),
+      left: Math.max(0, targetX),
+      behavior: "auto"
+    });
+    await nextFrame();
+    await nextFrame();
+    rect = element.getBoundingClientRect();
   }
+
+  return {
+    x: rect.x,
+    y: rect.y,
+    width: rect.width,
+    height: rect.height
+  };
 }
 
 async function waitForSelector(selector, state, timeoutMs) {
@@ -165,10 +238,11 @@ async function handleCommand(command, args) {
       };
     case "query": {
       const elements = findElements(args.selector);
+      const bestElement = findElement(args.selector);
       return {
         exists: elements.length > 0,
         count: elements.length,
-        first: serializeElement(elements[0]),
+        first: serializeElement(bestElement || elements[0]),
         all: args.all ? elements.map((element) => serializeElement(element)) : undefined
       };
     }
@@ -177,7 +251,7 @@ async function handleCommand(command, args) {
       if (!element) {
         throw new Error("Element not found");
       }
-      scrollIntoViewIfNeeded(element);
+      await scrollIntoViewIfNeeded(element);
       if (!isVisible(element)) {
         throw new Error("Element not visible");
       }
@@ -193,6 +267,7 @@ async function handleCommand(command, args) {
       if (!element) {
         throw new Error("Element not found");
       }
+      await scrollIntoViewIfNeeded(element);
       element.focus();
       if (args.clearFirst && "value" in element) {
         setNativeValue(element, "");
@@ -209,6 +284,9 @@ async function handleCommand(command, args) {
       const target = args.selector ? findElement(args.selector) : document.activeElement || document.body;
       if (!target) {
         throw new Error("Target element not found");
+      }
+      if (args.selector) {
+        await scrollIntoViewIfNeeded(target);
       }
       target.focus?.();
       const keys = String(args.keys || "")
@@ -244,10 +322,10 @@ async function handleCommand(command, args) {
       if (!element) {
         throw new Error("Element not found");
       }
-      scrollIntoViewIfNeeded(element);
+      const rect = await scrollIntoViewIfNeeded(element);
       return {
         success: true,
-        rect: serializeElement(element)?.rect || null
+        rect
       };
     }
     default:
