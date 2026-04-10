@@ -10,7 +10,7 @@ BridgeTab — це локальний browser bridge для Chrome: Chrome Exten
 - Chrome Extension Manifest V3
 - керування вкладками через єдиний JSON protocol
 - allowlist доменів і session token
-- popup UI для ручного `Connect / Disconnect`
+- popup UI українською для ручного `Підключити / Відключити`
 - screenshots, DOM query, click/type/wait, console logs, network errors
 
 ## Швидко: як встановити
@@ -57,7 +57,7 @@ ws://127.0.0.1:17888/ws
 
 3. Вставити token із термінала або `~/.bridgetab/config.json`
 4. Перевірити allowlist доменів
-5. Натиснути `Connect current session`
+5. Натиснути `Підключити поточну сесію`
 
 ## Швидко: як користуватись
 
@@ -140,6 +140,7 @@ Bridge збереже PNG у локальну директорію та пове
 - session token
 - `localhost only` bind на `127.0.0.1`
 - popup extension з ручним connect flow
+- popup extension українською з feedback-блоком і health/status sync
 - allowlist доменів
 - audit log
 - screenshots у temp-like local folder
@@ -153,6 +154,7 @@ Bridge збереже PNG у локальну директорію та пове
 - `list_tabs`
 - `query`
 - `click`
+- `scroll_into_view`
 - `get_console_logs`
 - `get_network_errors`
 - `screenshot_page`
@@ -321,7 +323,7 @@ BridgeTab одразу закладає базові обмеження:
 - extension підключається через session token
 - token генерується локально
 - доступ до сайтів обмежується allowlist-доменами
-- користувач має вручну натиснути `Connect current session`
+- користувач має вручну натиснути `Підключити поточну сесію`
 - arbitrary JS execution у першій версії не реалізовано
 - audit log не зберігає чутливі поля типу паролів
 
@@ -357,11 +359,10 @@ BridgeTab автоматично створює:
 
 Поточна версія вже робоча, але ще не “desktop product level”. З того, що логічно розвивати далі:
 
-- health-sync UX у popup
-- кращий error feedback без `alert`
 - desktop runner або standalone binary без user-facing `npm install`
 - V2-команди: `hover`, `select_option`, `upload_file`, `evaluate_safe`, `get_local_storage`
 - більш зручний logs viewer усередині extension
+- стабільніші complex interactions для нестандартних SPA/UI-кейсів
 
 ## Чи обов’язковий `npm`
 
@@ -388,7 +389,7 @@ BridgeTab автоматично створює:
 Щоб довести BridgeTab до рівня “аналог browser control layer як у Claude Code, але сильніше і зручніше”, я б робив далі так:
 
 1. Прибрати `npm` із user flow через standalone runner
-2. Доробити popup до повноцінного control center
+2. Доробити popup до ще повноціннішого control center
 3. Додати richer logs/debug panel
 4. Додати V2-команди
 5. Продумати безпечний `debug mode` з обмеженим `evaluate_safe`
