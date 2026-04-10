@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BridgeTab</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="panel">
+      <section class="hero">
+        <p class="eyebrow">LOCAL BROWSER BRIDGE</p>
+        <h1>BridgeTab</h1>
+        <p class="lede">Manual-connect control deck for DOM actions, screenshots, and browser diagnostics.</p>
+      </section>
+
+      <section class="card status-card">
+        <div>
+          <p class="label">Bridge Status</p>
+          <p id="statusBadge" class="status disconnected">Disconnected</p>
+        </div>
+        <div class="status-meta">
+          <p id="transportMeta" class="meta">Transport offline</p>
+          <p id="lastCommand" class="meta">No commands yet</p>
+        </div>
+      </section>
+
+      <section id="feedbackCard" class="card feedback hidden">
+        <p class="label">Feedback</p>
+        <p id="feedbackText" class="feedback-text">Ready.</p>
+      </section>
+
+      <section class="card">
+        <p class="label">Current Tab</p>
+        <h2 id="tabTitle">No active tab</h2>
+        <p id="tabUrl" class="url">Open a tab to inspect its domain.</p>
+        <p id="sessionMeta" class="meta session-meta">No active browser bridge session.</p>
+      </section>
+
+      <section class="card form-card">
+        <label>
+          <span>Bridge WebSocket URL</span>
+          <input id="serverUrl" type="text" placeholder="ws://127.0.0.1:17888/ws" />
+        </label>
+        <label>
+          <span>Session Token</span>
+          <input id="token" type="password" placeholder="Paste token from local bridge server" />
+        </label>
+        <label>
+          <span>Allowlist Domains</span>
+          <textarea id="allowlist" rows="4" placeholder="localhost&#10;*.test"></textarea>
+        </label>
+
+        <div class="toggle-row">
+          <label class="switch">
+            <input id="debugMode" type="checkbox" />
+            <span>Debug mode</span>
+          </label>
+          <button id="allowCurrentDomain" class="ghost" type="button">Allow current domain</button>
+        </div>
+      </section>
+
+      <section class="actions">
+        <button id="connectButton" type="button">Connect current session</button>
+        <button id="disconnectButton" class="ghost" type="button">Disconnect</button>
+        <button id="openLogsButton" class="ghost" type="button">Open logs</button>
+      </section>
+
+      <section class="actions actions-secondary">
+        <button id="refreshButton" class="ghost" type="button">Refresh status</button>
+      </section>
+    </main>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

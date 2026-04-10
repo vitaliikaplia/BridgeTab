@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BridgeTab Logs</title>
+    <link rel="stylesheet" href="popup.css" />
+    <style>
+      body {
+        width: auto;
+        min-height: 100vh;
+      }
+
+      main {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 28px;
+      }
+
+      pre {
+        margin: 0;
+        padding: 16px;
+        overflow: auto;
+        border: 1px solid rgba(22, 17, 13, 0.12);
+        background: rgba(255, 251, 245, 0.88);
+        box-shadow: 0 20px 60px rgba(54, 39, 24, 0.12);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <p class="eyebrow">Bridge Diagnostics</p>
+        <h1>Recent Storage Snapshot</h1>
+        <p class="lede">This view shows local extension settings. Server audit logs remain on the localhost bridge side.</p>
+      </section>
+      <section class="card">
+        <pre id="dump"></pre>
+      </section>
+    </main>
+    <script type="module">
+      const data = await chrome.storage.local.get(null);
+      document.getElementById("dump").textContent = JSON.stringify(data, null, 2);
+    </script>
+  </body>
+</html>
+

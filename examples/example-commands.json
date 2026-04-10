@@ -1,0 +1,31 @@
+[
+  {
+    "token": "YOUR_TOKEN",
+    "command": "list_tabs"
+  },
+  {
+    "token": "YOUR_TOKEN",
+    "tabId": 123,
+    "command": "navigate",
+    "args": {
+      "url": "https://clients-express.test",
+      "createNew": false
+    }
+  },
+  {
+    "token": "YOUR_TOKEN",
+    "tabId": 123,
+    "command": "query",
+    "args": {
+      "selector": "[data-testid='submit']"
+    }
+  },
+  {
+    "token": "YOUR_TOKEN",
+    "tabId": 123,
+    "command": "click",
+    "args": {
+      "selector": "[data-testid='submit']"
+    }
+  }
+]
