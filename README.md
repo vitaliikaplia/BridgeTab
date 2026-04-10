@@ -18,7 +18,7 @@ BridgeTab — це локальний browser bridge для Chrome: Chrome Exten
 ### 1. Запустити bridge server
 
 ```bash
-cd /Users/vitaliikaplia/Downloads/BridgeTab/bridge-server
+cd bridge-server
 npm install
 npm start
 ```
@@ -43,7 +43,7 @@ npm start
 4. Вибрати папку:
 
 ```bash
-/Users/vitaliikaplia/Downloads/BridgeTab/extension
+./extension
 ```
 
 ### 3. Підключити поточну browser session
@@ -173,12 +173,12 @@ BridgeTab складається з 3 частин:
 
 Основні файли:
 
-- [extension/manifest.json](/Users/vitaliikaplia/Downloads/BridgeTab/extension/manifest.json)
-- [extension/background.js](/Users/vitaliikaplia/Downloads/BridgeTab/extension/background.js)
-- [extension/content.js](/Users/vitaliikaplia/Downloads/BridgeTab/extension/content.js)
-- [extension/popup.html](/Users/vitaliikaplia/Downloads/BridgeTab/extension/popup.html)
-- [extension/popup.js](/Users/vitaliikaplia/Downloads/BridgeTab/extension/popup.js)
-- [extension/storage.js](/Users/vitaliikaplia/Downloads/BridgeTab/extension/storage.js)
+- `extension/manifest.json`
+- `extension/background.js`
+- `extension/content.js`
+- `extension/popup.html`
+- `extension/popup.js`
+- `extension/storage.js`
 
 ### 2. Background service worker
 
@@ -203,11 +203,11 @@ BridgeTab складається з 3 частин:
 
 Основні файли:
 
-- [bridge-server/src/server.js](/Users/vitaliikaplia/Downloads/BridgeTab/bridge-server/src/server.js)
-- [bridge-server/src/session-manager.js](/Users/vitaliikaplia/Downloads/BridgeTab/bridge-server/src/session-manager.js)
-- [bridge-server/src/command-router.js](/Users/vitaliikaplia/Downloads/BridgeTab/bridge-server/src/command-router.js)
-- [bridge-server/src/logger.js](/Users/vitaliikaplia/Downloads/BridgeTab/bridge-server/src/logger.js)
-- [bridge-server/src/screenshot-store.js](/Users/vitaliikaplia/Downloads/BridgeTab/bridge-server/src/screenshot-store.js)
+- `bridge-server/src/server.js`
+- `bridge-server/src/session-manager.js`
+- `bridge-server/src/command-router.js`
+- `bridge-server/src/logger.js`
+- `bridge-server/src/screenshot-store.js`
 
 ## Структура проєкту
 
@@ -378,10 +378,10 @@ BridgeTab автоматично створює:
 
 Додаткові файли:
 
-- [docs/setup.md](/Users/vitaliikaplia/Downloads/BridgeTab/docs/setup.md)
-- [docs/protocol.md](/Users/vitaliikaplia/Downloads/BridgeTab/docs/protocol.md)
-- [docs/security.md](/Users/vitaliikaplia/Downloads/BridgeTab/docs/security.md)
-- [examples/example-commands.json](/Users/vitaliikaplia/Downloads/BridgeTab/examples/example-commands.json)
+- `docs/setup.md`
+- `docs/protocol.md`
+- `docs/security.md`
+- `examples/example-commands.json`
 
 ## Наступні рекомендовані кроки
 
@@ -392,4 +392,3 @@ BridgeTab автоматично створює:
 3. Додати richer logs/debug panel
 4. Додати V2-команди
 5. Продумати безпечний `debug mode` з обмеженим `evaluate_safe`
-
