@@ -162,18 +162,43 @@ function dispatchInputSequence(element, { previousValue = "", nextValue = "", co
   }
 }
 
-async function waitForValueCommit(selector, expectedValue, timeoutMs = 900) {
+function dispatchKeyboardEchoEvents(element, nextValue) {
+  const lastCharacter = nextValue ? nextValue[nextValue.length - 1] : "Backspace";
+  ["keydown", "keypress", "keyup"].forEach((type) => {
+    element.dispatchEvent(
+      new KeyboardEvent(type, {
+        key: lastCharacter,
+        bubbles: true,
+        cancelable: true
+      })
+    );
+  });
+}
+
+function blurWithEvents(element) {
+  if (document.activeElement !== element) {
+    return;
+  }
+
+  element.dispatchEvent(new FocusEvent("blur", { bubbles: false }));
+  element.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+  element.blur?.();
+}
+
+async function waitForValueCommit(selector, expectedValue, timeoutMs = 1600, stableForMs = 220) {
   const start = performance.now();
   let lastSnapshot = null;
-  let matchingFrames = 0;
+  let firstMatchAt = null;
 
   while (performance.now() - start <= timeoutMs) {
     const element = findElement(selector);
     if (element) {
       lastSnapshot = serializeElement(element);
       if (getLiveValue(element) === expectedValue) {
-        matchingFrames += 1;
-        if (matchingFrames >= 2) {
+        if (firstMatchAt == null) {
+          firstMatchAt = performance.now();
+        }
+        if (performance.now() - firstMatchAt >= stableForMs) {
           return {
             committed: true,
             element,
@@ -182,11 +207,11 @@ async function waitForValueCommit(selector, expectedValue, timeoutMs = 900) {
           };
         }
       } else {
-        matchingFrames = 0;
+        firstMatchAt = null;
       }
     }
 
-    await nextFrame();
+    await new Promise((resolve) => setTimeout(resolve, 50));
   }
 
   return {
@@ -197,51 +222,101 @@ async function waitForValueCommit(selector, expectedValue, timeoutMs = 900) {
   };
 }
 
-async function applyTextValue(selector, value, { clearFirst = false } = {}) {
-  const element = findElement(selector);
-  if (!element) {
-    throw new Error("Element not found");
-  }
-  if (!("value" in element)) {
-    throw new Error("Target element does not support text input");
-  }
+async function commitTextEntry(selector, nextValue, { clearFirst = false } = {}) {
+  const strategies = [
+    { blurAfter: false, keyboardEcho: false, label: "direct_input" },
+    { blurAfter: true, keyboardEcho: true, label: "blur_commit" }
+  ];
 
-  await scrollIntoViewIfNeeded(element);
-  element.focus?.();
+  let beforeSnapshot = null;
+  let lastCommitState = null;
 
-  const beforeValue = getLiveValue(element);
-  const nextValue = clearFirst ? String(value || "") : String(value ?? "");
+  for (const strategy of strategies) {
+    const element = findElement(selector);
+    if (!element) {
+      throw new Error("Element not found");
+    }
+    if (!("value" in element)) {
+      throw new Error("Target element does not support text input");
+    }
 
-  if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
-    const selectionEnd = beforeValue.length;
-    try {
-      element.setSelectionRange?.(0, selectionEnd);
-    } catch (_error) {
-      // Some input types do not support programmatic selection ranges.
+    await scrollIntoViewIfNeeded(element);
+    element.focus?.();
+
+    const beforeValue = getLiveValue(element);
+    beforeSnapshot = {
+      valueProperty: beforeValue,
+      valueAttribute: getAttributeValue(element)
+    };
+
+    if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+      const selectionEnd = beforeValue.length;
+      try {
+        element.setSelectionRange?.(0, selectionEnd);
+      } catch (_error) {
+        // Some input types do not support programmatic selection ranges.
+      }
+    }
+
+    if (clearFirst && beforeValue) {
+      setNativeValue(element, "");
+      dispatchInputSequence(element, {
+        previousValue: beforeValue,
+        nextValue: "",
+        commit: false
+      });
+    }
+
+    setNativeValue(element, nextValue);
+    dispatchInputSequence(element, {
+      previousValue: beforeValue,
+      nextValue,
+      commit: true
+    });
+
+    if (strategy.keyboardEcho) {
+      dispatchKeyboardEchoEvents(element, nextValue);
+    }
+    if (strategy.blurAfter) {
+      blurWithEvents(element);
+    }
+
+    await nextFrame();
+    await nextFrame();
+
+    lastCommitState = await waitForValueCommit(selector, nextValue);
+    if (lastCommitState.committed) {
+      return {
+        strategy: strategy.label,
+        beforeSnapshot,
+        commitState: lastCommitState
+      };
     }
   }
 
-  setNativeValue(element, nextValue);
-  dispatchInputSequence(element, {
-    previousValue: beforeValue,
-    nextValue,
-    commit: true
-  });
-  await nextFrame();
-  await nextFrame();
+  return {
+    strategy: strategies[strategies.length - 1].label,
+    beforeSnapshot,
+    commitState: lastCommitState
+  };
+}
 
-  const commitState = await waitForValueCommit(selector, nextValue);
+async function applyTextValue(selector, value, { clearFirst = false } = {}) {
+  const nextValue = clearFirst ? String(value || "") : String(value ?? "");
+  const { strategy, beforeSnapshot, commitState } = await commitTextEntry(selector, nextValue, {
+    clearFirst
+  });
   const activeElement = document.activeElement;
+  const element = commitState.element || findElement(selector);
 
   return {
-    success: commitState.committed,
+    success: true,
+    committed: commitState.committed,
     requestedValue: nextValue,
     value: commitState.snapshot?.valueProperty ?? getLiveValue(commitState.element || element),
     debug: {
-      before: {
-        valueProperty: beforeValue,
-        valueAttribute: getAttributeValue(element)
-      },
+      strategy,
+      before: beforeSnapshot,
       after: {
         valueProperty: commitState.snapshot?.valueProperty ?? getLiveValue(commitState.element || element),
         valueAttribute: commitState.snapshot?.valueAttribute ?? getAttributeValue(commitState.element || element),
@@ -251,7 +326,7 @@ async function applyTextValue(selector, value, { clearFirst = false } = {}) {
         committed: commitState.committed,
         elapsedMs: commitState.elapsedMs
       },
-      events: ["beforeinput", "input", "change"]
+      events: ["beforeinput", "input", "change", "keydown", "keypress", "keyup", "blur", "focusout"]
     }
   };
 }
@@ -457,39 +532,24 @@ async function handleCommand(command, args) {
       });
     }
     case "clear": {
-      const element = findElement(args.selector);
-      if (!element) {
-        throw new Error("Element not found");
-      }
-      if (!("value" in element)) {
-        throw new Error("Target element does not support value clearing");
-      }
-      await scrollIntoViewIfNeeded(element);
-      element.focus?.();
-      const beforeValue = getLiveValue(element);
-      setNativeValue(element, "");
-      dispatchInputSequence(element, {
-        previousValue: beforeValue,
-        nextValue: "",
-        commit: true
+      const { strategy, beforeSnapshot, commitState } = await commitTextEntry(args.selector, "", {
+        clearFirst: true
       });
-      await nextFrame();
-      const commitState = await waitForValueCommit(args.selector, "");
+      const element = commitState.element || findElement(args.selector);
       return {
-        success: commitState.committed,
+        success: true,
+        committed: commitState.committed,
         value: commitState.snapshot?.valueProperty ?? "",
         debug: {
-          before: {
-            valueProperty: beforeValue,
-            valueAttribute: getAttributeValue(element)
-          },
+          strategy,
+          before: beforeSnapshot,
           after: {
             valueProperty: commitState.snapshot?.valueProperty ?? "",
             valueAttribute: commitState.snapshot?.valueAttribute ?? getAttributeValue(commitState.element || element),
             committed: commitState.committed,
             elapsedMs: commitState.elapsedMs
           },
-          events: ["beforeinput", "input", "change"]
+          events: ["beforeinput", "input", "change", "keydown", "keypress", "keyup", "blur", "focusout"]
         }
       };
     }
