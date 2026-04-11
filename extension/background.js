@@ -4,11 +4,58 @@ import { getSettings, updateSettings } from "./storage.js";
 const consoleLogs = new Map();
 const networkLogs = new Map();
 const MAX_LOGS = 200;
+const ACTION_ICON_SIZES = [16, 32, 48, 128];
+const ACTION_ICON_COLORS = {
+  connected: {
+    background: "#159a6d",
+    foreground: "#f4efe7"
+  },
+  disconnected: {
+    background: "#7f7a72",
+    foreground: "#f4efe7"
+  }
+};
 
 function pushBounded(map, key, entry) {
   const current = map.get(key) || [];
   current.unshift(entry);
   map.set(key, current.slice(0, MAX_LOGS));
+}
+
+function buildActionIconImageData(size, palette) {
+  const canvas = new OffscreenCanvas(size, size);
+  const ctx = canvas.getContext("2d");
+
+  ctx.clearRect(0, 0, size, size);
+  ctx.fillStyle = palette.background;
+  ctx.beginPath();
+  ctx.roundRect(1, 1, size - 2, size - 2, Math.max(4, Math.round(size * 0.24)));
+  ctx.fill();
+
+  ctx.fillStyle = palette.foreground;
+  ctx.font = `700 ${Math.round(size * 0.56)}px Georgia`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("B", size / 2, size / 2 + size * 0.03);
+
+  return ctx.getImageData(0, 0, size, size);
+}
+
+async function updateActionIcon(connected) {
+  const palette = connected ? ACTION_ICON_COLORS.connected : ACTION_ICON_COLORS.disconnected;
+  const imageData = Object.fromEntries(
+    ACTION_ICON_SIZES.map((size) => [size, buildActionIconImageData(size, palette)])
+  );
+
+  await chrome.action.setIcon({ imageData });
+  await chrome.action.setTitle({
+    title: connected ? "BridgeTab: сесію підключено" : "BridgeTab: сесію відключено"
+  });
+}
+
+async function refreshActionIconFromSettings() {
+  const settings = await getSettings();
+  await updateActionIcon(Boolean(settings.connected && settings.serverReachable));
 }
 
 function hostMatchesRule(hostname, rule) {
@@ -359,10 +406,12 @@ setCommandHandler(handleCommand);
 
 chrome.runtime.onInstalled.addListener(async () => {
   await updateSettings({});
+  await refreshActionIconFromSettings();
   await ensureBridgeConnection(chrome.runtime.id);
 });
 
 chrome.runtime.onStartup.addListener(async () => {
+  await refreshActionIconFromSettings();
   await ensureBridgeConnection(chrome.runtime.id);
 });
 
@@ -495,6 +544,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   return false;
+});
+
+chrome.storage.onChanged.addListener(async (changes, areaName) => {
+  if (areaName !== "local") {
+    return;
+  }
+
+  if (changes.connected || changes.serverReachable) {
+    await refreshActionIconFromSettings();
+  }
 });
 
 chrome.webRequest.onCompleted.addListener(
