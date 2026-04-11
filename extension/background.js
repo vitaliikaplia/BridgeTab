@@ -1,4 +1,4 @@
-import { connectBridge, disconnectBridge, getBridgeHealth, setCommandHandler } from "./bridge-client.js";
+import { connectBridge, disconnectBridge, ensureBridgeConnection, getBridgeHealth, setCommandHandler } from "./bridge-client.js";
 import { getSettings, updateSettings } from "./storage.js";
 
 const consoleLogs = new Map();
@@ -359,6 +359,17 @@ setCommandHandler(handleCommand);
 
 chrome.runtime.onInstalled.addListener(async () => {
   await updateSettings({});
+  await ensureBridgeConnection(chrome.runtime.id);
+});
+
+chrome.runtime.onStartup.addListener(async () => {
+  await ensureBridgeConnection(chrome.runtime.id);
+});
+
+chrome.tabs.onUpdated.addListener(async (_tabId, changeInfo) => {
+  if (changeInfo.status === "loading" || changeInfo.status === "complete") {
+    await ensureBridgeConnection(chrome.runtime.id);
+  }
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -378,6 +389,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           await disconnectBridge();
           sendResponse({ success: true });
         } else if (message.action === "get_state") {
+          await ensureBridgeConnection(chrome.runtime.id);
           const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
           let health = null;
           let capabilities = null;
@@ -402,6 +414,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               : null
           });
         } else if (message.action === "get_diagnostics") {
+          await ensureBridgeConnection(chrome.runtime.id);
           const settings = await getSettings();
           const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
           let health = null;
@@ -452,6 +465,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           });
           sendResponse({ success: result.success, result: result.result, error: result.error?.message || null });
         } else if (message.action === "refresh_health") {
+          await ensureBridgeConnection(chrome.runtime.id);
           const health = await getBridgeHealth();
           const settings = await getSettings();
           let capabilities = null;

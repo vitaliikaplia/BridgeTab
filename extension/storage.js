@@ -3,6 +3,7 @@ export const DEFAULT_SETTINGS = {
   token: "",
   allowlist: ["localhost", "*.test"],
   debugMode: false,
+  bridgeWanted: false,
   connected: false,
   lastCommand: null,
   lastError: null,

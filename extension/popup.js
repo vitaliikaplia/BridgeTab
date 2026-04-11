@@ -14,6 +14,7 @@ const capabilitiesMeta = document.getElementById("capabilitiesMeta");
 const sessionMeta = document.getElementById("sessionMeta");
 const feedbackCard = document.getElementById("feedbackCard");
 const feedbackText = document.getElementById("feedbackText");
+const actionsSection = document.querySelector(".actions");
 const connectButton = document.getElementById("connectButton");
 const disconnectButton = document.getElementById("disconnectButton");
 const allowCurrentDomainButton = document.getElementById("allowCurrentDomain");
@@ -68,6 +69,13 @@ function renderStatus(settings, health = null) {
       : "Немає активної bridge-сесії браузера.";
 }
 
+function renderSessionActions(settings, health = null) {
+  const connected = settings.connected && (health?.extensionConnected ?? settings.serverReachable);
+  connectButton.classList.toggle("hidden-action", connected);
+  disconnectButton.classList.toggle("hidden-action", !connected);
+  actionsSection.classList.toggle("is-connected", connected);
+}
+
 function renderCapabilities(capabilities) {
   if (!capabilities?.commands?.length) {
     capabilitiesMeta.textContent = "Capabilities недоступні, поки сервер не відповідає.";
@@ -112,6 +120,7 @@ async function loadState() {
   allowlistInput.value = settings.allowlist.join("\n");
   debugModeInput.checked = settings.debugMode;
   renderStatus(settings, response.health);
+  renderSessionActions(settings, response.health);
   renderCapabilities(response.capabilities);
   renderTab(response.activeTab);
   renderDomainState(response.activeTab, settings);

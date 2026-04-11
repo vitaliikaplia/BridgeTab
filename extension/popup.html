@@ -19,10 +19,16 @@
           <p class="label">Статус Bridge</p>
           <p id="statusBadge" class="status disconnected">Відключено</p>
         </div>
-        <div class="status-meta">
+        <div class="status-side">
+          <div class="actions session-actions">
+            <button id="connectButton" type="button">Підключити поточну сесію</button>
+            <button id="disconnectButton" class="ghost" type="button">Відключити</button>
+          </div>
+          <div class="status-meta">
           <p id="transportMeta" class="meta">Транспорт недоступний</p>
           <p id="capabilitiesMeta" class="meta">Можливості bridge будуть показані тут.</p>
           <p id="lastCommand" class="meta">Команд ще не було</p>
+          </div>
         </div>
       </section>
 
@@ -63,8 +69,6 @@
       </section>
 
       <section class="actions">
-        <button id="connectButton" type="button">Підключити поточну сесію</button>
-        <button id="disconnectButton" class="ghost" type="button">Відключити</button>
         <button id="openLogsButton" class="ghost" type="button">Відкрити логи</button>
       </section>
 
