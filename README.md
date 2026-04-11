@@ -385,21 +385,21 @@ BridgeTab автоматично створює:
 
 Поточна версія вже суттєво ближча до “desktop product level”, але логічно розвивати далі:
 
-- desktop runner або standalone binary без user-facing `npm install`
 - V2/V3-команди: `upload_file`, `evaluate_safe`, робота з cookies/session storage
 - ще стабільніші complex interactions для нестандартних SPA/UI-кейсів
-- окремі автотести для server-side protocol і extension flows
+- інтеграційні автотести для реального extension flow і Chrome-взаємодії
 
 ## Чи обов’язковий `npm`
 
-Ні. У поточній версії `npm` використовується як dev/runtime спосіб запуску bridge-server.
+Так, у поточній версії `npm` є основним і очікуваним способом запуску `bridge-server`.
 
-Для користувацького UX можна зробити:
+Це свідоме рішення для поточного етапу проєкту:
 
-- готовий standalone runner
-- `start-bridge.command` для macOS
-- `start-bridge.bat` для Windows
-- або повністю запакований binary без вимоги ставити `npm`
+- менше складності в підтримці й дистрибуції
+- швидший цикл розробки
+- фокус на стабільності bridge, а не на пакуванні runner-а
+
+Потенційні launcher/binary-варіанти можна розглядати пізніше, коли interaction layer і extension flow будуть повністю стабілізовані.
 
 ## Документація
 
@@ -435,10 +435,10 @@ npm run check
 
 ## Наступні рекомендовані кроки
 
-Щоб довести BridgeTab до рівня “аналог browser control layer як у Claude Code, але сильніше і зручніше”, я б робив далі так:
+Щоб довести BridgeTab до ще зрілішого й надійнішого робочого інструмента, логічно рухатись далі так:
 
-1. Прибрати `npm` із user flow через standalone runner
-2. Доробити popup до ще повноціннішого control center
-3. Додати richer logs/debug panel
-4. Додати V2-команди
-5. Продумати безпечний `debug mode` з обмеженим `evaluate_safe`
+1. Додати інтеграційні тести для реального extension/WebSocket/content-script flow
+2. Реалізувати `upload_file` і безпечний `evaluate_safe`
+3. Покращити стабільність взаємодій для SPA і dynamic DOM сценаріїв
+4. Розширити diagnostics ще кращою фільтрацією, очищенням і tab-scoped аналізом
+5. Додати роботу з cookies/session storage там, де це вписується в безпечну модель bridge
