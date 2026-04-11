@@ -63,7 +63,11 @@ function renderStatus(settings, health = null) {
     : "Транспорт недоступний";
   lastCommand.textContent = settings.lastCommand || "Команд ще не було";
   sessionMeta.textContent = health?.connectedSession?.connectedAt
-    ? `Підключено: ${new Date(health.connectedSession.connectedAt).toLocaleString("uk-UA")}`
+    ? `Підключено: ${new Date(health.connectedSession.connectedAt).toLocaleString("uk-UA")}${
+        health.connectedSession.lastHeartbeatAt
+          ? ` · Heartbeat: ${new Date(health.connectedSession.lastHeartbeatAt).toLocaleTimeString("uk-UA")}`
+          : ""
+      }`
     : settings.serverReachable
       ? "Bridge server онлайн, але ця browser-сесія ще не підключена."
       : "Немає активної bridge-сесії браузера.";

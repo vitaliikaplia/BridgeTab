@@ -213,6 +213,17 @@ function createServer(config) {
     socket.on("message", (buffer) => {
       try {
         const message = JSON.parse(buffer.toString("utf8"));
+        if (message.type === "heartbeat_ping") {
+          sessionManager.markHeartbeat();
+          socket.send(
+            JSON.stringify({
+              type: "heartbeat_pong",
+              clientTime: message.clientTime || null,
+              serverTime: new Date().toISOString()
+            })
+          );
+          return;
+        }
         sessionManager.handleMessage(message);
       } catch (error) {
         logger.add({

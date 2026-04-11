@@ -7,6 +7,11 @@ let reconnectTimer = null;
 let reconnectAttempts = 0;
 let activeConnectPromise = null;
 let intentionalDisconnect = false;
+let heartbeatInterval = null;
+let heartbeatTimeout = null;
+
+const HEARTBEAT_INTERVAL_MS = 15000;
+const HEARTBEAT_TIMEOUT_MS = 7000;
 
 export function setCommandHandler(handler) {
   commandHandler = handler;
@@ -31,6 +36,52 @@ function clearReconnectTimer() {
 
 function getReconnectDelay() {
   return Math.min(1000 * 2 ** reconnectAttempts, 15000);
+}
+
+function clearHeartbeatTimers() {
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+  }
+  if (heartbeatTimeout) {
+    clearTimeout(heartbeatTimeout);
+    heartbeatTimeout = null;
+  }
+}
+
+function armHeartbeatTimeout() {
+  if (heartbeatTimeout) {
+    clearTimeout(heartbeatTimeout);
+  }
+
+  heartbeatTimeout = setTimeout(() => {
+    heartbeatTimeout = null;
+    if (socket?.readyState === WebSocket.OPEN) {
+      socket.close(4000, "Heartbeat timeout");
+    }
+  }, HEARTBEAT_TIMEOUT_MS);
+}
+
+function sendHeartbeat() {
+  if (!socket || socket.readyState !== WebSocket.OPEN) {
+    return;
+  }
+
+  socket.send(
+    JSON.stringify({
+      type: "heartbeat_ping",
+      clientTime: new Date().toISOString()
+    })
+  );
+  armHeartbeatTimeout();
+}
+
+function startHeartbeat() {
+  clearHeartbeatTimers();
+  heartbeatInterval = setInterval(() => {
+    sendHeartbeat();
+  }, HEARTBEAT_INTERVAL_MS);
+  sendHeartbeat();
 }
 
 async function syncBridgeHealth() {
@@ -76,6 +127,7 @@ function attachSocketListeners() {
   socket.addEventListener("close", async () => {
     socket = null;
     socketListenersAttached = false;
+    clearHeartbeatTimers();
     await updateSettings({
       connected: false,
       extensionConnectedAt: null,
@@ -105,6 +157,7 @@ function attachSocketListeners() {
     if (message.type === "connected") {
       clearReconnectTimer();
       reconnectAttempts = 0;
+      startHeartbeat();
       const settings = await getSettings();
       await updateSettings({
         connected: true,
@@ -112,6 +165,18 @@ function attachSocketListeners() {
         extensionConnectedAt: message.serverTime || new Date().toISOString(),
         sessionInfo: settings.sessionInfo,
         bridgeWanted: settings.bridgeWanted
+      });
+      return;
+    }
+
+    if (message.type === "heartbeat_pong") {
+      if (heartbeatTimeout) {
+        clearTimeout(heartbeatTimeout);
+        heartbeatTimeout = null;
+      }
+
+      await updateSettings({
+        lastError: null
       });
       return;
     }
@@ -199,6 +264,7 @@ export async function connectBridge(extensionId, options = {}) {
 export async function disconnectBridge() {
   intentionalDisconnect = true;
   clearReconnectTimer();
+  clearHeartbeatTimers();
   activeConnectPromise = null;
   if (socket) {
     socket.close(1000, "Disconnected by user");

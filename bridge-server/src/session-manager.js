@@ -16,6 +16,7 @@ class SessionManager {
     this.extensionSocket = socket;
     this.extensionInfo = {
       connectedAt: new Date().toISOString(),
+      lastHeartbeatAt: null,
       ...info
     };
   }
@@ -35,6 +36,17 @@ class SessionManager {
 
   getInfo() {
     return this.extensionInfo;
+  }
+
+  markHeartbeat() {
+    if (!this.extensionInfo) {
+      return;
+    }
+
+    this.extensionInfo = {
+      ...this.extensionInfo,
+      lastHeartbeatAt: new Date().toISOString()
+    };
   }
 
   async sendCommand(commandEnvelope, timeoutMs = 8000) {
