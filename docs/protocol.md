@@ -80,6 +80,26 @@
 }
 ```
 
+Типовий результат для form-елемента:
+
+```json
+{
+  "exists": true,
+  "count": 1,
+  "first": {
+    "tag": "input",
+    "value": "UA flex",
+    "valueProperty": "UA flex",
+    "valueAttribute": "UA flex",
+    "visible": true,
+    "enabled": true,
+    "active": false
+  }
+}
+```
+
+`valueProperty` показує живе значення `element.value`, а `valueAttribute` — HTML-атрибут `value`. Для dynamic admin UI і controlled input-ів це два різні діагностичні сигнали.
+
 ### `hover`
 
 Аргументи:
@@ -127,35 +147,91 @@
 
 ```json
 {
-  "exists": true,
-  "count": 1,
-  "first": {
-    "tag": "button",
-    "text": "Save",
-    "html": "<button class=\"primary\">Save</button>",
-    "value": "",
-    "visible": true,
-    "enabled": true,
-    "checked": false,
-    "rect": {
-      "x": 12,
-      "y": 44,
-      "width": 120,
-      "height": 36
+  "success": true,
+  "committed": true,
+  "value": "",
+  "debug": {
+    "strategy": "blur_commit",
+    "before": {
+      "valueProperty": "EN flex",
+      "valueAttribute": "EN flex"
     },
-    "attributes": {
-      "class": "primary"
-    }
-  },
-  "all": [
-    {
-      "tag": "button",
-      "text": "Save",
-      "visible": true
-    }
-  ]
+    "after": {
+      "valueProperty": "",
+      "valueAttribute": "EN flex",
+      "committed": true,
+      "elapsedMs": 412
+    },
+    "events": [
+      "beforeinput",
+      "input",
+      "change",
+      "keydown",
+      "keypress",
+      "keyup",
+      "blur",
+      "focusout"
+    ]
+  }
 }
 ```
+
+`clear` повертає:
+
+- `success: true` — команда виконалась технічно коректно
+- `committed` — чи новий стан реально втримався в live DOM
+- `debug` — діагностика для складних форм, зокрема ACF/Gutenberg
+
+### `type`
+
+Аргументи:
+
+```json
+{
+  "selector": "input[name='email']",
+  "text": "hello@example.com",
+  "clearFirst": true
+}
+```
+
+Типовий результат:
+
+```json
+{
+  "success": true,
+  "committed": true,
+  "requestedValue": "hello@example.com",
+  "value": "hello@example.com",
+  "debug": {
+    "strategy": "direct_input",
+    "before": {
+      "valueProperty": "",
+      "valueAttribute": null
+    },
+    "after": {
+      "valueProperty": "hello@example.com",
+      "valueAttribute": null,
+      "activeElementTag": "input",
+      "activeMatchesTarget": true,
+      "committed": true,
+      "elapsedMs": 268
+    },
+    "events": [
+      "beforeinput",
+      "input",
+      "change",
+      "keydown",
+      "keypress",
+      "keyup",
+      "blur",
+      "focusout"
+    ]
+  },
+  "error": null
+}
+```
+
+BridgeTab для `type` і `clear` окремо перевіряє, чи нове значення справді закомітилось у live DOM. Це зроблено спеціально для WordPress admin, ACF, Gutenberg і інших controlled form UI.
 
 ### `get_page_state`
 
@@ -224,6 +300,10 @@
   }
 }
 ```
+
+### `scroll_into_view`
+
+BridgeTab прокручує сторінку плавно й після цього чекає коротку stabilization-паузу, щоб наступна команда працювала вже по оновленому viewport.
 
 ### `screenshot_page`
 

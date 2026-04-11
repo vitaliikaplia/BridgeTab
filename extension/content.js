@@ -1,4 +1,47 @@
+(function bridgeTabContentScript() {
+if (window.__bridgetab_content_script_loaded__) {
+  return;
+}
+window.__bridgetab_content_script_loaded__ = true;
+
 const INJECTED_FLAG = "__bridgetab_injected__";
+const ACTIVITY_OVERLAY_ID = "__bridgetab_activity_overlay__";
+const ACTIVITY_MIN_VISIBLE_MS = 1100;
+const ACTIVITY_FADE_OUT_MS = 260;
+const ACTIVITY_OVERLAY_STYLE = `
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2147483647;
+  opacity: 0;
+  visibility: hidden;
+  box-shadow:
+    inset 0 0 0 2px rgba(42, 196, 134, 0.38),
+    inset 0 0 64px rgba(54, 233, 160, 0.28),
+    inset 0 0 180px rgba(22, 145, 98, 0.2),
+    inset 0 0 320px rgba(10, 88, 58, 0.12);
+  background:
+    radial-gradient(circle at top, rgba(90, 244, 176, 0.12), transparent 44%),
+    radial-gradient(circle at bottom, rgba(36, 182, 124, 0.1), transparent 42%);
+  transition:
+    opacity ${ACTIVITY_FADE_OUT_MS}ms ease,
+    visibility 0ms linear ${ACTIVITY_FADE_OUT_MS}ms;
+  transform: translateZ(0);
+`;
+const ACTIVITY_OVERLAY_ACTIVE_STYLE = `
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 140ms ease,
+    visibility 0ms linear 0ms;
+`;
+const SCROLL_SETTLE_MS = 260;
+
+const activityOverlayState = {
+  activeCount: 0,
+  visibleSince: 0,
+  hideTimer: null
+};
 
 function injectPageBridge() {
   if (window[INJECTED_FLAG]) {
@@ -14,6 +57,70 @@ function injectPageBridge() {
 }
 
 injectPageBridge();
+
+function ensureActivityOverlay() {
+  let overlay = document.getElementById(ACTIVITY_OVERLAY_ID);
+  if (overlay) {
+    return overlay;
+  }
+
+  overlay = document.createElement("div");
+  overlay.id = ACTIVITY_OVERLAY_ID;
+  overlay.setAttribute("aria-hidden", "true");
+  overlay.style.cssText = ACTIVITY_OVERLAY_STYLE;
+  (document.documentElement || document.body || document.head).appendChild(overlay);
+  return overlay;
+}
+
+function clearActivityHideTimer() {
+  if (activityOverlayState.hideTimer) {
+    clearTimeout(activityOverlayState.hideTimer);
+    activityOverlayState.hideTimer = null;
+  }
+}
+
+function showActivityOverlay() {
+  const overlay = ensureActivityOverlay();
+  clearActivityHideTimer();
+  activityOverlayState.activeCount += 1;
+
+  if (activityOverlayState.activeCount === 1) {
+    activityOverlayState.visibleSince = Date.now();
+  }
+
+  overlay.style.cssText = `${ACTIVITY_OVERLAY_STYLE}${ACTIVITY_OVERLAY_ACTIVE_STYLE}`;
+
+  return {
+    activeCount: activityOverlayState.activeCount,
+    visibleSince: activityOverlayState.visibleSince
+  };
+}
+
+function hideActivityOverlay() {
+  const overlay = ensureActivityOverlay();
+  activityOverlayState.activeCount = Math.max(0, activityOverlayState.activeCount - 1);
+
+  if (activityOverlayState.activeCount > 0) {
+    return {
+      activeCount: activityOverlayState.activeCount,
+      visible: true
+    };
+  }
+
+  const elapsed = Date.now() - activityOverlayState.visibleSince;
+  const remainingVisibleMs = Math.max(0, ACTIVITY_MIN_VISIBLE_MS - elapsed);
+  clearActivityHideTimer();
+
+  activityOverlayState.hideTimer = setTimeout(() => {
+    overlay.style.cssText = ACTIVITY_OVERLAY_STYLE;
+    activityOverlayState.hideTimer = null;
+  }, remainingVisibleMs);
+
+  return {
+    activeCount: activityOverlayState.activeCount,
+    visible: remainingVisibleMs > 0
+  };
+}
 
 window.addEventListener("BridgeTabPageLog", (event) => {
   chrome.runtime.sendMessage({
@@ -378,10 +485,14 @@ function nextFrame() {
   return new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
 }
 
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function scrollIntoViewIfNeeded(element) {
   const performScroll = async () => {
-    element.scrollIntoView({ block: "center", inline: "center", behavior: "auto" });
-    await nextFrame();
+    element.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+    await wait(SCROLL_SETTLE_MS);
     await nextFrame();
   };
 
@@ -397,9 +508,9 @@ async function scrollIntoViewIfNeeded(element) {
     window.scrollTo({
       top: Math.max(0, targetY),
       left: Math.max(0, targetX),
-      behavior: "auto"
+      behavior: "smooth"
     });
-    await nextFrame();
+    await wait(SCROLL_SETTLE_MS);
     await nextFrame();
     rect = element.getBoundingClientRect();
   }
@@ -453,6 +564,16 @@ async function waitForSelector(selector, state, timeoutMs) {
 
 async function handleCommand(command, args) {
   switch (command) {
+    case "__activity_start":
+      return {
+        success: true,
+        overlay: showActivityOverlay()
+      };
+    case "__activity_end":
+      return {
+        success: true,
+        overlay: hideActivityOverlay()
+      };
     case "get_page_state":
       return {
         url: window.location.href,
@@ -681,3 +802,4 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     .catch((error) => sendResponse({ success: false, error: error.message }));
   return true;
 });
+})();

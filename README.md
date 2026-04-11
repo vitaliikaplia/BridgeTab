@@ -313,9 +313,12 @@ curl http://127.0.0.1:17888/capabilities
       "text": "Save",
       "html": "<button type=\"submit\">Save</button>",
       "value": "",
+      "valueProperty": "",
+      "valueAttribute": "",
       "visible": true,
       "enabled": true,
       "checked": false,
+      "active": false,
       "rect": {
         "x": 12,
         "y": 44,
@@ -330,6 +333,13 @@ curl http://127.0.0.1:17888/capabilities
   "error": null
 }
 ```
+
+`query` читає живий DOM-стан. Для form-елементів BridgeTab окремо повертає:
+
+- `valueProperty` — поточне live-значення `element.value`
+- `valueAttribute` — HTML-атрибут `value`, якщо він існує
+
+Це особливо корисно для modern admin UI, де framework може тимчасово тримати старий attribute і новий live state окремо.
 
 ## Безпека
 
@@ -378,6 +388,9 @@ BridgeTab автоматично створює:
 - server-side валідацію команд і стабільніші error codes (`BAD_REQUEST`, `NO_ACTIVE_SESSION`, `COMMAND_TIMEOUT`)
 - V2-команди `hover`, `select_option`, `get_local_storage`
 - покращений popup із показом allowlist-статусу активного домену
+- activity overlay у viewport під час роботи агента на сторінці
+- плавніша прокрутка до елементів замість різкого стрибка viewport
+- стабільніший input flow для WordPress admin / ACF / controlled inputs
 - richer logs/debug view в extension з `health`, `capabilities`, server audit logs і browser-side console/network logs
 - quick actions у popup для `ping` і `get_page_state`
 

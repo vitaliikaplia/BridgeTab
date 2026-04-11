@@ -309,6 +309,32 @@ async function sendContentCommand(tabId, command, args = {}) {
   });
 }
 
+async function signalActivityOverlay(tabId, phase) {
+  try {
+    await withTab(tabId, async () => {
+      await chrome.tabs.sendMessage(tabId, {
+        command: phase === "start" ? "__activity_start" : "__activity_end",
+        args: {}
+      });
+    });
+  } catch (_error) {
+    // Ignore overlay signaling failures so command execution keeps working.
+  }
+}
+
+async function runInteractiveTabCommand(tabId, command, args = {}, fn = null) {
+  await signalActivityOverlay(tabId, "start");
+
+  try {
+    if (fn) {
+      return await fn();
+    }
+    return await sendContentCommand(tabId, command, args);
+  } finally {
+    await signalActivityOverlay(tabId, "end");
+  }
+}
+
 async function captureVisiblePng(tabId) {
   const tab = await chrome.tabs.get(tabId);
   const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
@@ -374,70 +400,73 @@ async function handleCommand(message) {
         result = { activated: true };
         break;
       case "navigate": {
-        await assertHostnameAllowed(args.url);
-        if (args.createNew) {
-          const createdTab = await chrome.tabs.create({ url: args.url, active: true });
-          effectiveTabId = createdTab.id;
-        } else {
-          effectiveTabId = await resolveTabId(tabId);
-          await chrome.tabs.update(effectiveTabId, { url: args.url });
-        }
-        const pageState = await waitForStablePage(effectiveTabId, {
-          expectedUrl: args.url,
-          timeoutMs: args.timeoutMs || 15000
+        effectiveTabId = await resolveTabId(tabId);
+        result = await runInteractiveTabCommand(effectiveTabId, "navigate", args, async () => {
+          await assertHostnameAllowed(args.url);
+          if (args.createNew) {
+            const createdTab = await chrome.tabs.create({ url: args.url, active: true });
+            effectiveTabId = createdTab.id;
+          } else {
+            await chrome.tabs.update(effectiveTabId, { url: args.url });
+          }
+          const pageState = await waitForStablePage(effectiveTabId, {
+            expectedUrl: args.url,
+            timeoutMs: args.timeoutMs || 15000
+          });
+          await signalActivityOverlay(effectiveTabId, "start");
+          const tab = await chrome.tabs.get(effectiveTabId);
+          return {
+            tabId: effectiveTabId,
+            url: pageState.url || tab.url,
+            title: pageState.title || tab.title || "",
+            readyState: pageState.readyState
+          };
         });
-        const tab = await chrome.tabs.get(effectiveTabId);
-        result = {
-          tabId: effectiveTabId,
-          url: pageState.url || tab.url,
-          title: pageState.title || tab.title || "",
-          readyState: pageState.readyState
-        };
         break;
       }
       case "get_page_state":
         effectiveTabId = await resolveTabId(tabId);
-        result = await sendContentCommand(effectiveTabId, "get_page_state");
+        result = await runInteractiveTabCommand(effectiveTabId, "get_page_state", args);
         break;
       case "query":
         effectiveTabId = await resolveTabId(tabId);
-        result = await sendContentCommand(effectiveTabId, "query", args);
+        result = await runInteractiveTabCommand(effectiveTabId, "query", args);
         break;
       case "click":
         effectiveTabId = await resolveTabId(tabId);
-        result = await sendContentCommand(effectiveTabId, "click", args);
+        result = await runInteractiveTabCommand(effectiveTabId, "click", args);
         break;
       case "focus":
         effectiveTabId = await resolveTabId(tabId);
-        result = await sendContentCommand(effectiveTabId, "focus", args);
+        result = await runInteractiveTabCommand(effectiveTabId, "focus", args);
         break;
       case "hover":
         effectiveTabId = await resolveTabId(tabId);
-        result = await sendContentCommand(effectiveTabId, "hover", args);
+        result = await runInteractiveTabCommand(effectiveTabId, "hover", args);
         break;
       case "type":
         effectiveTabId = await resolveTabId(tabId);
-        result = await sendContentCommand(effectiveTabId, "type", args);
+        result = await runInteractiveTabCommand(effectiveTabId, "type", args);
         break;
       case "clear":
         effectiveTabId = await resolveTabId(tabId);
-        result = await sendContentCommand(effectiveTabId, "clear", args);
+        result = await runInteractiveTabCommand(effectiveTabId, "clear", args);
         break;
       case "select_option":
         effectiveTabId = await resolveTabId(tabId);
-        result = await sendContentCommand(effectiveTabId, "select_option", args);
+        result = await runInteractiveTabCommand(effectiveTabId, "select_option", args);
         break;
       case "press_keys":
         effectiveTabId = await resolveTabId(tabId);
-        result = await sendContentCommand(effectiveTabId, "press_keys", args);
+        result = await runInteractiveTabCommand(effectiveTabId, "press_keys", args);
         break;
       case "wait_for":
         effectiveTabId = await resolveTabId(tabId);
-        result = await sendContentCommand(effectiveTabId, "wait_for", args);
+        result = await runInteractiveTabCommand(effectiveTabId, "wait_for", args);
         break;
       case "scroll_into_view":
         effectiveTabId = await resolveTabId(tabId);
-        result = await sendContentCommand(effectiveTabId, "scroll_into_view", args);
+        result = await runInteractiveTabCommand(effectiveTabId, "scroll_into_view", args);
         break;
       case "screenshot_page":
         effectiveTabId = await resolveTabId(tabId);
@@ -472,15 +501,21 @@ async function handleCommand(message) {
         break;
       case "get_local_storage":
         effectiveTabId = await resolveTabId(tabId);
-        result = await sendContentCommand(effectiveTabId, "get_local_storage", args);
+        result = await runInteractiveTabCommand(effectiveTabId, "get_local_storage", args);
         break;
       case "reload":
         effectiveTabId = await resolveTabId(tabId);
-        await withTab(effectiveTabId, async () => chrome.tabs.reload(effectiveTabId));
-        result = await waitForStablePage(effectiveTabId, {
-          timeoutMs: args.timeoutMs || 15000
+        result = await runInteractiveTabCommand(effectiveTabId, "reload", args, async () => {
+          await withTab(effectiveTabId, async () => chrome.tabs.reload(effectiveTabId));
+          const settledState = await waitForStablePage(effectiveTabId, {
+            timeoutMs: args.timeoutMs || 15000
+          });
+          await signalActivityOverlay(effectiveTabId, "start");
+          return {
+            ...settledState,
+            reloaded: true
+          };
         });
-        result.reloaded = true;
         break;
       default:
         throw new Error(`Unsupported command: ${command}`);
