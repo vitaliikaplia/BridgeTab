@@ -405,10 +405,10 @@ BridgeTab автоматично створює:
 
 Додаткові файли:
 
-- `docs/setup.md`
-- `docs/protocol.md`
-- `docs/security.md`
-- `examples/example-commands.json`
+- [docs/setup.md](docs/setup.md)
+- [docs/protocol.md](docs/protocol.md)
+- [docs/security.md](docs/security.md)
+- [examples/example-commands.json](examples/example-commands.json)
 
 ## Якість і перевірки
 
@@ -433,12 +433,12 @@ npm run check
 - screenshot routing
 - logger clear behavior
 
-## Наступні рекомендовані кроки
+## Наступний етап
 
-Щоб довести BridgeTab до ще зрілішого й надійнішого робочого інструмента, логічно рухатись далі так:
+Найближчі доробки, які залишаються для доведення BridgeTab:
 
-1. Додати інтеграційні тести для реального extension/WebSocket/content-script flow
-2. Реалізувати `upload_file` і безпечний `evaluate_safe`
-3. Покращити стабільність взаємодій для SPA і dynamic DOM сценаріїв
-4. Розширити diagnostics ще кращою фільтрацією, очищенням і tab-scoped аналізом
-5. Додати роботу з cookies/session storage там, де це вписується в безпечну модель bridge
+1. Інтеграційні тести для повного extension/WebSocket/content-script flow, щоб стабільно ловити регресії в живому сценарії.
+2. Команди наступного рівня: `upload_file`, безпечний `evaluate_safe`, а також читання `cookies` і `sessionStorage` в межах поточної моделі безпеки.
+3. Підсилення interaction layer для складних SPA-сценаріїв: повторні спроби, кращий `wait_for`, стабільніша робота з dynamic DOM і асинхронними переходами.
+4. Подальший розвиток diagnostics: чіткіший tab-scoped огляд, фільтрація подій, очищення стану і краща візуалізація browser/server-side проблем.
+5. Розширення automated checks не лише для server-side протоколу, а й для ключових користувацьких маршрутів у самому розширенні.
