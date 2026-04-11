@@ -1,10 +1,10 @@
-# BridgeTab Protocol
+# Протокол BridgeTab
 
-All commands use the same JSON envelope over `POST /command`.
+Усі команди використовують один і той самий JSON envelope через `POST /command`.
 
-Bridge capabilities can also be inspected over `GET /capabilities`.
+Можливості bridge також можна перевірити через `GET /capabilities`.
 
-## Request
+## Запит
 
 ```json
 {
@@ -18,7 +18,7 @@ Bridge capabilities can also be inspected over `GET /capabilities`.
 }
 ```
 
-## Response
+## Відповідь
 
 ```json
 {
@@ -32,7 +32,7 @@ Bridge capabilities can also be inspected over `GET /capabilities`.
 }
 ```
 
-## MVP commands
+## MVP-команди
 
 - `ping`
 - `list_tabs`
@@ -56,11 +56,11 @@ Bridge capabilities can also be inspected over `GET /capabilities`.
 - `get_local_storage`
 - `reload`
 
-## Command notes
+## Примітки до команд
 
 ### `navigate`
 
-Args:
+Аргументи:
 
 ```json
 {
@@ -71,7 +71,7 @@ Args:
 
 ### `query`
 
-Args:
+Аргументи:
 
 ```json
 {
@@ -82,7 +82,7 @@ Args:
 
 ### `hover`
 
-Args:
+Аргументи:
 
 ```json
 {
@@ -92,7 +92,7 @@ Args:
 
 ### `select_option`
 
-Args:
+Аргументи:
 
 ```json
 {
@@ -101,11 +101,11 @@ Args:
 }
 ```
 
-You may use `value`, `label`, or `index`.
+Можна використовувати `value`, `label` або `index`.
 
 ### `focus`
 
-Args:
+Аргументи:
 
 ```json
 {
@@ -115,7 +115,7 @@ Args:
 
 ### `clear`
 
-Args:
+Аргументи:
 
 ```json
 {
@@ -123,7 +123,7 @@ Args:
 }
 ```
 
-Typical result:
+Типовий результат:
 
 ```json
 {
@@ -159,7 +159,7 @@ Typical result:
 
 ### `get_page_state`
 
-Returns:
+Повертає:
 
 ```json
 {
@@ -181,7 +181,7 @@ Returns:
 
 ### `get_console_logs`
 
-Returns a buffered array of `console.error`, `console.warn`, `window.onerror`, and `unhandledrejection` events:
+Повертає буферизований масив подій `console.error`, `console.warn`, `window.onerror` і `unhandledrejection`:
 
 ```json
 [
@@ -196,7 +196,7 @@ Returns a buffered array of `console.error`, `console.warn`, `window.onerror`, a
 
 ### `get_network_errors`
 
-Returns failed requests and HTTP `4xx/5xx` responses captured by the extension:
+Повертає невдалі запити і HTTP-відповіді `4xx/5xx`, які зафіксувало extension:
 
 ```json
 [
@@ -212,7 +212,7 @@ Returns failed requests and HTTP `4xx/5xx` responses captured by the extension:
 
 ### `get_local_storage`
 
-Returns the full `localStorage` snapshot for the current origin, or only requested keys:
+Повертає повний snapshot `localStorage` для поточного origin або лише запитані ключі:
 
 ```json
 {
@@ -227,7 +227,7 @@ Returns the full `localStorage` snapshot for the current origin, or only request
 
 ### `screenshot_page`
 
-Returns a PNG path created by the bridge server:
+Повертає шлях до PNG, створеного bridge server:
 
 ```json
 {
@@ -235,9 +235,9 @@ Returns a PNG path created by the bridge server:
 }
 ```
 
-## Errors
+## Помилки
 
-BridgeTab returns compact structured errors such as:
+BridgeTab повертає компактні структуровані помилки, наприклад:
 
 ```json
 {
@@ -246,7 +246,7 @@ BridgeTab returns compact structured errors such as:
 }
 ```
 
-Common protocol-level codes:
+Типові коди на рівні протоколу:
 
 - `BAD_REQUEST`
 - `UNAUTHORIZED`

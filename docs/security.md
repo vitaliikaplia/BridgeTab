@@ -1,31 +1,31 @@
-# BridgeTab Security
+# Безпека BridgeTab
 
-## Localhost only
+## Лише localhost
 
-The bridge server binds only to `127.0.0.1`. It never listens on `0.0.0.0`.
+Bridge server слухає лише `127.0.0.1`. Він ніколи не відкривається на `0.0.0.0`.
 
 ## Session token
 
-- A random session token is generated locally on first start.
-- The token is stored only in `~/.bridgetab/config.json`.
-- HTTP commands and the extension WebSocket handshake both require the token.
+- Випадковий session token генерується локально під час першого запуску.
+- Токен зберігається лише в `~/.bridgetab/config.json`.
+- І HTTP-команди, і WebSocket handshake extension вимагають цей токен.
 
-To rotate the token, stop the server, edit `~/.bridgetab/config.json`, replace the token, and reconnect the extension.
+Щоб змінити токен, зупиніть сервер, відредагуйте `~/.bridgetab/config.json`, замініть токен і повторно підключіть extension.
 
-## Explicit user action
+## Явна дія користувача
 
-The extension does not automatically open a bridge session. The user must click `Connect` in the popup.
+Extension не відкриває bridge session автоматично. Користувач має сам натиснути `Connect` у popup.
 
 ## Allowlist
 
-- Domains are checked in the extension before tab commands run.
-- Default starter rules are `localhost` and `*.test`.
-- The popup can add the current domain to the allowlist and shows whether the active tab is currently allowed.
+- Домени перевіряються в extension перед виконанням команд у вкладці.
+- Стартові правила за замовчуванням — `localhost` і `*.test`.
+- Popup може додати поточний домен в allowlist і показує, чи дозволена зараз активна вкладка.
 
-## Risk boundaries in MVP
+## Межі ризику в MVP
 
-- No remote access mode
-- No cloud sync
-- No arbitrary JavaScript evaluation
-- Audit logging is local and avoids sensitive payload recording
-- `get_local_storage` is explicit and returns only storage values for the selected origin; it does not enable arbitrary script execution
+- Немає режиму віддаленого доступу
+- Немає cloud sync
+- Немає довільного виконання JavaScript
+- Audit logging залишається локальним і уникає запису чутливих payload-даних
+- `get_local_storage` є явною командою і повертає лише значення сховища для вибраного origin; ця команда не відкриває довільне виконання скриптів
