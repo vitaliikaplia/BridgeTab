@@ -154,6 +154,103 @@ function clearLogMap(map, tabId = null) {
   map.clear();
 }
 
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForTabLoadComplete(tabId, { expectedUrl = null, timeoutMs = 15000 } = {}) {
+  const tabMatches = (tab) => {
+    if (!tab) {
+      return false;
+    }
+    if (expectedUrl && tab.url !== expectedUrl) {
+      return false;
+    }
+    return tab.status === "complete";
+  };
+
+  const existing = await chrome.tabs.get(tabId).catch(() => null);
+  if (tabMatches(existing)) {
+    return existing;
+  }
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error("Timed out waiting for tab navigation to complete"));
+    }, timeoutMs);
+
+    const cleanup = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timer);
+      chrome.tabs.onUpdated.removeListener(handleUpdated);
+      chrome.tabs.onRemoved.removeListener(handleRemoved);
+    };
+
+    const handleUpdated = (updatedTabId, changeInfo, tab) => {
+      if (updatedTabId !== tabId) {
+        return;
+      }
+      if (changeInfo.status !== "complete") {
+        return;
+      }
+      if (!tabMatches(tab)) {
+        return;
+      }
+      cleanup();
+      resolve(tab);
+    };
+
+    const handleRemoved = (removedTabId) => {
+      if (removedTabId !== tabId) {
+        return;
+      }
+      cleanup();
+      reject(new Error("Tab was closed during navigation"));
+    };
+
+    chrome.tabs.onUpdated.addListener(handleUpdated);
+    chrome.tabs.onRemoved.addListener(handleRemoved);
+  });
+}
+
+async function waitForContentReady(tabId, { expectedUrl = null, timeoutMs = 8000 } = {}) {
+  const start = Date.now();
+  let lastError = null;
+
+  while (Date.now() - start <= timeoutMs) {
+    try {
+      const state = await sendContentCommand(tabId, "get_page_state");
+      const ready = state.readyState === "interactive" || state.readyState === "complete";
+      const urlMatches = !expectedUrl || state.url === expectedUrl;
+      if (ready && urlMatches) {
+        await delay(150);
+        const confirmedState = await sendContentCommand(tabId, "get_page_state");
+        const confirmedReady = confirmedState.readyState === "interactive" || confirmedState.readyState === "complete";
+        const confirmedUrlMatches = !expectedUrl || confirmedState.url === expectedUrl;
+        if (confirmedReady && confirmedUrlMatches) {
+          return confirmedState;
+        }
+      }
+    } catch (error) {
+      lastError = error;
+    }
+
+    await delay(150);
+  }
+
+  throw new Error(lastError?.message || "Timed out waiting for content script readiness");
+}
+
+async function waitForStablePage(tabId, options = {}) {
+  await waitForTabLoadComplete(tabId, options);
+  return waitForContentReady(tabId, options);
+}
+
 async function fetchCapabilities() {
   const settings = await getSettings();
   if (!settings.serverUrl) {
@@ -285,11 +382,16 @@ async function handleCommand(message) {
           effectiveTabId = await resolveTabId(tabId);
           await chrome.tabs.update(effectiveTabId, { url: args.url });
         }
+        const pageState = await waitForStablePage(effectiveTabId, {
+          expectedUrl: args.url,
+          timeoutMs: args.timeoutMs || 15000
+        });
         const tab = await chrome.tabs.get(effectiveTabId);
         result = {
           tabId: effectiveTabId,
-          url: tab.url,
-          title: tab.title || ""
+          url: pageState.url || tab.url,
+          title: pageState.title || tab.title || "",
+          readyState: pageState.readyState
         };
         break;
       }
@@ -375,7 +477,10 @@ async function handleCommand(message) {
       case "reload":
         effectiveTabId = await resolveTabId(tabId);
         await withTab(effectiveTabId, async () => chrome.tabs.reload(effectiveTabId));
-        result = { reloaded: true };
+        result = await waitForStablePage(effectiveTabId, {
+          timeoutMs: args.timeoutMs || 15000
+        });
+        result.reloaded = true;
         break;
       default:
         throw new Error(`Unsupported command: ${command}`);

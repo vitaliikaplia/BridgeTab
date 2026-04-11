@@ -97,8 +97,39 @@ function getElementText(element) {
   return (element.innerText || element.textContent || "").trim();
 }
 
+function getValueDescriptor(element) {
+  if (element instanceof HTMLInputElement) {
+    return Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+  }
+  if (element instanceof HTMLTextAreaElement) {
+    return Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value");
+  }
+  if (element instanceof HTMLSelectElement) {
+    return Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+  }
+
+  let prototype = Object.getPrototypeOf(element);
+  while (prototype) {
+    const descriptor = Object.getOwnPropertyDescriptor(prototype, "value");
+    if (descriptor?.set) {
+      return descriptor;
+    }
+    prototype = Object.getPrototypeOf(prototype);
+  }
+
+  return null;
+}
+
+function getLiveValue(element) {
+  return "value" in element ? element.value : "";
+}
+
+function getAttributeValue(element) {
+  return element.getAttribute?.("value") ?? null;
+}
+
 function setNativeValue(element, value) {
-  const descriptor = Object.getOwnPropertyDescriptor(element.constructor.prototype, "value");
+  const descriptor = getValueDescriptor(element);
   if (descriptor?.set) {
     descriptor.set.call(element, value);
     return;
@@ -106,9 +137,123 @@ function setNativeValue(element, value) {
   element.value = value;
 }
 
-function dispatchTrustedLikeEvents(element) {
-  element.dispatchEvent(new Event("input", { bubbles: true }));
-  element.dispatchEvent(new Event("change", { bubbles: true }));
+function dispatchInputSequence(element, { previousValue = "", nextValue = "", commit = true } = {}) {
+  const inputType = nextValue.length >= previousValue.length ? "insertText" : "deleteContentBackward";
+  const data = nextValue === previousValue ? null : nextValue;
+
+  element.dispatchEvent(
+    new InputEvent("beforeinput", {
+      bubbles: true,
+      cancelable: true,
+      data,
+      inputType
+    })
+  );
+  element.dispatchEvent(
+    new InputEvent("input", {
+      bubbles: true,
+      data,
+      inputType
+    })
+  );
+
+  if (commit) {
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+}
+
+async function waitForValueCommit(selector, expectedValue, timeoutMs = 900) {
+  const start = performance.now();
+  let lastSnapshot = null;
+  let matchingFrames = 0;
+
+  while (performance.now() - start <= timeoutMs) {
+    const element = findElement(selector);
+    if (element) {
+      lastSnapshot = serializeElement(element);
+      if (getLiveValue(element) === expectedValue) {
+        matchingFrames += 1;
+        if (matchingFrames >= 2) {
+          return {
+            committed: true,
+            element,
+            snapshot: lastSnapshot,
+            elapsedMs: Math.round(performance.now() - start)
+          };
+        }
+      } else {
+        matchingFrames = 0;
+      }
+    }
+
+    await nextFrame();
+  }
+
+  return {
+    committed: false,
+    element: findElement(selector),
+    snapshot: lastSnapshot,
+    elapsedMs: Math.round(performance.now() - start)
+  };
+}
+
+async function applyTextValue(selector, value, { clearFirst = false } = {}) {
+  const element = findElement(selector);
+  if (!element) {
+    throw new Error("Element not found");
+  }
+  if (!("value" in element)) {
+    throw new Error("Target element does not support text input");
+  }
+
+  await scrollIntoViewIfNeeded(element);
+  element.focus?.();
+
+  const beforeValue = getLiveValue(element);
+  const nextValue = clearFirst ? String(value || "") : String(value ?? "");
+
+  if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+    const selectionEnd = beforeValue.length;
+    try {
+      element.setSelectionRange?.(0, selectionEnd);
+    } catch (_error) {
+      // Some input types do not support programmatic selection ranges.
+    }
+  }
+
+  setNativeValue(element, nextValue);
+  dispatchInputSequence(element, {
+    previousValue: beforeValue,
+    nextValue,
+    commit: true
+  });
+  await nextFrame();
+  await nextFrame();
+
+  const commitState = await waitForValueCommit(selector, nextValue);
+  const activeElement = document.activeElement;
+
+  return {
+    success: commitState.committed,
+    requestedValue: nextValue,
+    value: commitState.snapshot?.valueProperty ?? getLiveValue(commitState.element || element),
+    debug: {
+      before: {
+        valueProperty: beforeValue,
+        valueAttribute: getAttributeValue(element)
+      },
+      after: {
+        valueProperty: commitState.snapshot?.valueProperty ?? getLiveValue(commitState.element || element),
+        valueAttribute: commitState.snapshot?.valueAttribute ?? getAttributeValue(commitState.element || element),
+        activeElementTag: activeElement?.tagName?.toLowerCase() || null,
+        activeElementName: activeElement?.getAttribute?.("name") || null,
+        activeMatchesTarget: Boolean(commitState.element && activeElement === commitState.element),
+        committed: commitState.committed,
+        elapsedMs: commitState.elapsedMs
+      },
+      events: ["beforeinput", "input", "change"]
+    }
+  };
 }
 
 function dispatchMouseEvent(element, type) {
@@ -136,10 +281,13 @@ function serializeElement(element) {
     tag: element.tagName.toLowerCase(),
     text: getElementText(element),
     html: element.outerHTML,
-    value: "value" in element ? element.value : "",
+    value: getLiveValue(element),
+    valueProperty: getLiveValue(element),
+    valueAttribute: getAttributeValue(element),
     visible: isVisible(element),
     enabled: isEnabled(element),
     checked: Boolean(element.checked),
+    active: document.activeElement === element,
     rect: {
       x: rect.x,
       y: rect.y,
@@ -304,22 +452,9 @@ async function handleCommand(command, args) {
       };
     }
     case "type": {
-      const element = findElement(args.selector);
-      if (!element) {
-        throw new Error("Element not found");
-      }
-      await scrollIntoViewIfNeeded(element);
-      element.focus();
-      if (args.clearFirst && "value" in element) {
-        setNativeValue(element, "");
-        dispatchTrustedLikeEvents(element);
-      }
-      setNativeValue(element, args.text || "");
-      dispatchTrustedLikeEvents(element);
-      return {
-        success: true,
-        value: element.value
-      };
+      return applyTextValue(args.selector, args.text || "", {
+        clearFirst: Boolean(args.clearFirst)
+      });
     }
     case "clear": {
       const element = findElement(args.selector);
@@ -331,11 +466,31 @@ async function handleCommand(command, args) {
       }
       await scrollIntoViewIfNeeded(element);
       element.focus?.();
+      const beforeValue = getLiveValue(element);
       setNativeValue(element, "");
-      dispatchTrustedLikeEvents(element);
+      dispatchInputSequence(element, {
+        previousValue: beforeValue,
+        nextValue: "",
+        commit: true
+      });
+      await nextFrame();
+      const commitState = await waitForValueCommit(args.selector, "");
       return {
-        success: true,
-        value: element.value
+        success: commitState.committed,
+        value: commitState.snapshot?.valueProperty ?? "",
+        debug: {
+          before: {
+            valueProperty: beforeValue,
+            valueAttribute: getAttributeValue(element)
+          },
+          after: {
+            valueProperty: commitState.snapshot?.valueProperty ?? "",
+            valueAttribute: commitState.snapshot?.valueAttribute ?? getAttributeValue(commitState.element || element),
+            committed: commitState.committed,
+            elapsedMs: commitState.elapsedMs
+          },
+          events: ["beforeinput", "input", "change"]
+        }
       };
     }
     case "press_keys": {
@@ -398,9 +553,14 @@ async function handleCommand(command, args) {
 
       await scrollIntoViewIfNeeded(element);
       element.focus();
-      element.value = option.value;
+      const previousValue = getLiveValue(element);
+      setNativeValue(element, option.value);
       option.selected = true;
-      dispatchTrustedLikeEvents(element);
+      dispatchInputSequence(element, {
+        previousValue,
+        nextValue: option.value,
+        commit: true
+      });
 
       return {
         success: true,
