@@ -44,6 +44,10 @@ curl http://127.0.0.1:17888/health
 ```
 
 ```bash
+curl http://127.0.0.1:17888/capabilities
+```
+
+```bash
 curl -H "X-Bridge-Token: YOUR_TOKEN" http://127.0.0.1:17888/tabs
 ```
 
@@ -55,3 +59,16 @@ curl -X POST http://127.0.0.1:17888/command \
     "command": "list_tabs"
   }'
 ```
+
+## 5. Inspect logs and diagnostics
+
+BridgeTab now includes an extension diagnostics page:
+
+1. Open the popup
+2. Click `Відкрити логи`
+3. Review:
+   - local extension storage
+   - browser-side console and network logs for the active tab
+   - `/health` response from the bridge server
+   - `/capabilities` response from the bridge server
+   - `/logs` audit entries from the server, if the token is saved

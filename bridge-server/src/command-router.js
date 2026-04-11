@@ -49,12 +49,13 @@ class CommandRouter {
   }
 
   formatError(error, command) {
+    const normalized = error && error.code ? error : buildError("COMMAND_FAILED", error.message);
     return {
       success: false,
       command,
       tabId: null,
       result: null,
-      error: buildError("COMMAND_FAILED", error.message)
+      error: normalized
     };
   }
 }

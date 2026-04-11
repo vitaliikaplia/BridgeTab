@@ -111,6 +111,16 @@ function dispatchTrustedLikeEvents(element) {
   element.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
+function dispatchMouseEvent(element, type) {
+  element.dispatchEvent(
+    new MouseEvent(type, {
+      view: window,
+      bubbles: true,
+      cancelable: true
+    })
+  );
+}
+
 function serializeElement(element) {
   if (!element) {
     return null;
@@ -262,6 +272,37 @@ async function handleCommand(command, args) {
         elementSummary: serializeElement(element)
       };
     }
+    case "focus": {
+      const element = findElement(args.selector);
+      if (!element) {
+        throw new Error("Element not found");
+      }
+      await scrollIntoViewIfNeeded(element);
+      element.focus?.();
+      return {
+        success: true,
+        focused: document.activeElement === element,
+        elementSummary: serializeElement(element)
+      };
+    }
+    case "hover": {
+      const element = findElement(args.selector);
+      if (!element) {
+        throw new Error("Element not found");
+      }
+      await scrollIntoViewIfNeeded(element);
+      if (!isVisible(element)) {
+        throw new Error("Element not visible");
+      }
+      dispatchMouseEvent(element, "mouseenter");
+      dispatchMouseEvent(element, "mouseover");
+      dispatchMouseEvent(element, "mousemove");
+      return {
+        success: true,
+        hovered: true,
+        elementSummary: serializeElement(element)
+      };
+    }
     case "type": {
       const element = findElement(args.selector);
       if (!element) {
@@ -274,6 +315,23 @@ async function handleCommand(command, args) {
         dispatchTrustedLikeEvents(element);
       }
       setNativeValue(element, args.text || "");
+      dispatchTrustedLikeEvents(element);
+      return {
+        success: true,
+        value: element.value
+      };
+    }
+    case "clear": {
+      const element = findElement(args.selector);
+      if (!element) {
+        throw new Error("Element not found");
+      }
+      if (!("value" in element)) {
+        throw new Error("Target element does not support value clearing");
+      }
+      await scrollIntoViewIfNeeded(element);
+      element.focus?.();
+      setNativeValue(element, "");
       dispatchTrustedLikeEvents(element);
       return {
         success: true,
@@ -315,6 +373,45 @@ async function handleCommand(command, args) {
         keys: args.keys
       };
     }
+    case "select_option": {
+      const element = findElement(args.selector);
+      if (!element) {
+        throw new Error("Element not found");
+      }
+      if (!(element instanceof HTMLSelectElement)) {
+        throw new Error("Target element is not a select");
+      }
+
+      let option = null;
+      if (args.value != null) {
+        option = Array.from(element.options).find((item) => item.value === String(args.value));
+      }
+      if (!option && args.label != null) {
+        option = Array.from(element.options).find((item) => getElementText(item) === String(args.label).trim());
+      }
+      if (!option && args.index != null) {
+        option = element.options[Number(args.index)] || null;
+      }
+      if (!option) {
+        throw new Error("Option not found");
+      }
+
+      await scrollIntoViewIfNeeded(element);
+      element.focus();
+      element.value = option.value;
+      option.selected = true;
+      dispatchTrustedLikeEvents(element);
+
+      return {
+        success: true,
+        value: element.value,
+        selectedOption: {
+          value: option.value,
+          label: getElementText(option),
+          index: option.index
+        }
+      };
+    }
     case "wait_for":
       return waitForSelector(args.selector, args.state || "visible", args.timeoutMs || 5000);
     case "scroll_into_view": {
@@ -326,6 +423,31 @@ async function handleCommand(command, args) {
       return {
         success: true,
         rect
+      };
+    }
+    case "get_local_storage": {
+      const requestedKeys = Array.isArray(args.keys)
+        ? args.keys.map((key) => String(key))
+        : null;
+      const storage = {};
+
+      if (requestedKeys?.length) {
+        for (const key of requestedKeys) {
+          storage[key] = window.localStorage.getItem(key);
+        }
+      } else {
+        for (let index = 0; index < window.localStorage.length; index += 1) {
+          const key = window.localStorage.key(index);
+          if (key != null) {
+            storage[key] = window.localStorage.getItem(key);
+          }
+        }
+      }
+
+      return {
+        origin: window.location.origin,
+        count: Object.keys(storage).length,
+        storage
       };
     }
     default:

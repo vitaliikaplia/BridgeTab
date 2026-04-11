@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const { buildError } = require("./validators");
 
 class SessionManager {
   constructor() {
@@ -23,7 +24,7 @@ class SessionManager {
     this.extensionSocket = null;
     this.extensionInfo = null;
     for (const [, deferred] of this.pending) {
-      deferred.reject(new Error("No active bridge session"));
+      deferred.reject(buildError("NO_ACTIVE_SESSION", "No active bridge session"));
     }
     this.pending.clear();
   }
@@ -38,7 +39,7 @@ class SessionManager {
 
   async sendCommand(commandEnvelope, timeoutMs = 8000) {
     if (!this.hasSession()) {
-      throw new Error("No active bridge session");
+      throw buildError("NO_ACTIVE_SESSION", "No active bridge session");
     }
 
     const requestId = crypto.randomUUID();
@@ -51,7 +52,7 @@ class SessionManager {
     const response = await new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(requestId);
-        reject(new Error("Command timed out"));
+        reject(buildError("COMMAND_TIMEOUT", "Command timed out"));
       }, timeoutMs);
 
       this.pending.set(requestId, {
@@ -90,4 +91,3 @@ class SessionManager {
 module.exports = {
   SessionManager
 };
-

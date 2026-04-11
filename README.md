@@ -227,6 +227,7 @@ BridgeTab/
 Поточні ендпоінти:
 
 - `GET /health`
+- `GET /capabilities`
 - `GET /tabs`
 - `GET /logs`
 - `POST /connect`
@@ -248,6 +249,16 @@ BridgeTab/
   "timeoutMs": 10000
 }
 ```
+
+## Швидка інтеграційна підказка
+
+Щоб клієнт або AI-асистент міг швидко дізнатись, які команди доступні в поточній збірці, можна викликати:
+
+```bash
+curl http://127.0.0.1:17888/capabilities
+```
+
+У відповідь BridgeTab поверне список команд, required/optional args і базові feature flags.
 
 Базовий формат відповіді:
 
@@ -272,14 +283,19 @@ BridgeTab/
 - `get_page_state`
 - `query`
 - `click`
+- `focus`
 - `type`
+- `clear`
 - `press_keys`
 - `wait_for`
 - `scroll_into_view`
+- `hover`
+- `select_option`
 - `screenshot_page`
 - `screenshot_element`
 - `get_console_logs`
 - `get_network_errors`
+- `get_local_storage`
 - `reload`
 
 ## Приклад `query`
@@ -355,14 +371,24 @@ BridgeTab автоматично створює:
 - screenshots: `~/.bridgetab/screenshots`
 - audit log: `~/.bridgetab/audit.log`
 
+## Що вже дороблено поверх MVP
+
+Після поточного циклу допрацювань BridgeTab уже має:
+
+- server-side валідацію команд і стабільніші error codes (`BAD_REQUEST`, `NO_ACTIVE_SESSION`, `COMMAND_TIMEOUT`)
+- V2-команди `hover`, `select_option`, `get_local_storage`
+- покращений popup із показом allowlist-статусу активного домену
+- richer logs/debug view в extension з `health`, `capabilities`, server audit logs і browser-side console/network logs
+- quick actions у popup для `ping` і `get_page_state`
+
 ## Відомі поточні межі
 
-Поточна версія вже робоча, але ще не “desktop product level”. З того, що логічно розвивати далі:
+Поточна версія вже суттєво ближча до “desktop product level”, але логічно розвивати далі:
 
 - desktop runner або standalone binary без user-facing `npm install`
-- V2-команди: `hover`, `select_option`, `upload_file`, `evaluate_safe`, `get_local_storage`
-- більш зручний logs viewer усередині extension
-- стабільніші complex interactions для нестандартних SPA/UI-кейсів
+- V2/V3-команди: `upload_file`, `evaluate_safe`, робота з cookies/session storage
+- ще стабільніші complex interactions для нестандартних SPA/UI-кейсів
+- окремі автотести для server-side protocol і extension flows
 
 ## Чи обов’язковий `npm`
 
@@ -383,6 +409,29 @@ BridgeTab автоматично створює:
 - `docs/protocol.md`
 - `docs/security.md`
 - `examples/example-commands.json`
+
+## Якість і перевірки
+
+Server-side частина тепер має автоматизовані перевірки:
+
+```bash
+cd bridge-server
+npm test
+```
+
+Або повний check:
+
+```bash
+cd bridge-server
+npm run check
+```
+
+Покрито:
+
+- command validation
+- session manager flow
+- screenshot routing
+- logger clear behavior
 
 ## Наступні рекомендовані кроки
 

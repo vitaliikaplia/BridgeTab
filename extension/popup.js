@@ -7,8 +7,10 @@ const debugModeInput = document.getElementById("debugMode");
 const statusBadge = document.getElementById("statusBadge");
 const tabTitle = document.getElementById("tabTitle");
 const tabUrl = document.getElementById("tabUrl");
+const domainMeta = document.getElementById("domainMeta");
 const lastCommand = document.getElementById("lastCommand");
 const transportMeta = document.getElementById("transportMeta");
+const capabilitiesMeta = document.getElementById("capabilitiesMeta");
 const sessionMeta = document.getElementById("sessionMeta");
 const feedbackCard = document.getElementById("feedbackCard");
 const feedbackText = document.getElementById("feedbackText");
@@ -17,11 +19,25 @@ const disconnectButton = document.getElementById("disconnectButton");
 const allowCurrentDomainButton = document.getElementById("allowCurrentDomain");
 const openLogsButton = document.getElementById("openLogsButton");
 const refreshButton = document.getElementById("refreshButton");
+const pingButton = document.getElementById("pingButton");
+const pageStateButton = document.getElementById("pageStateButton");
+const quickResult = document.getElementById("quickResult");
 
 let refreshTimer = null;
 
-async function request(action) {
-  return chrome.runtime.sendMessage({ type: "popup_action", action });
+async function request(action, payload = {}) {
+  return chrome.runtime.sendMessage({ type: "popup_action", action, ...payload });
+}
+
+function hostMatchesRule(hostname, rule) {
+  if (!rule) {
+    return false;
+  }
+  if (rule.startsWith("*.")) {
+    const suffix = rule.slice(2);
+    return hostname === suffix || hostname.endsWith(`.${suffix}`);
+  }
+  return hostname === rule;
 }
 
 function renderFeedback(message, tone = "success") {
@@ -52,13 +68,38 @@ function renderStatus(settings, health = null) {
       : "Немає активної bridge-сесії браузера.";
 }
 
+function renderCapabilities(capabilities) {
+  if (!capabilities?.commands?.length) {
+    capabilitiesMeta.textContent = "Capabilities недоступні, поки сервер не відповідає.";
+    return;
+  }
+  capabilitiesMeta.textContent = `Доступно команд: ${capabilities.commands.length}. Protocol v${capabilities.protocolVersion}.`;
+}
+
 function renderTab(activeTab) {
   tabTitle.textContent = activeTab?.title || "Немає активної вкладки";
   tabUrl.textContent = activeTab?.url || "Відкрий вкладку, щоб перевірити її домен.";
 }
 
+function renderDomainState(activeTab, settings) {
+  if (!activeTab?.url) {
+    domainMeta.textContent = "Статус домену недоступний, поки немає активної вкладки.";
+    return;
+  }
+
+  try {
+    const hostname = new URL(activeTab.url).hostname;
+    const allowed = settings.allowlist.some((rule) => hostMatchesRule(hostname, rule));
+    domainMeta.textContent = allowed
+      ? `Домен ${hostname} дозволений для bridge-команд.`
+      : `Домен ${hostname} зараз не в allowlist.`;
+  } catch (_error) {
+    domainMeta.textContent = "Для цієї вкладки неможливо визначити статус домену.";
+  }
+}
+
 function setBusy(isBusy) {
-  [connectButton, disconnectButton, allowCurrentDomainButton, openLogsButton, refreshButton].forEach((button) => {
+  [connectButton, disconnectButton, allowCurrentDomainButton, openLogsButton, refreshButton, pingButton, pageStateButton].forEach((button) => {
     button.disabled = isBusy;
   });
 }
@@ -71,7 +112,9 @@ async function loadState() {
   allowlistInput.value = settings.allowlist.join("\n");
   debugModeInput.checked = settings.debugMode;
   renderStatus(settings, response.health);
+  renderCapabilities(response.capabilities);
   renderTab(response.activeTab);
+  renderDomainState(response.activeTab, settings);
   if (settings.lastError) {
     renderFeedback(settings.lastError, "error");
   } else if (response.health?.extensionConnected) {
@@ -81,6 +124,10 @@ async function loadState() {
   } else {
     renderFeedback("Bridge server офлайн або недоступний. Спершу запусти локальний runner.", "error");
   }
+}
+
+function renderQuickResult(payload) {
+  quickResult.textContent = typeof payload === "string" ? payload : JSON.stringify(payload, null, 2);
 }
 
 async function persistInputs() {
@@ -124,6 +171,26 @@ async function performAction(action, options = {}) {
   }
 }
 
+async function runQuickCommand(command) {
+  setBusy(true);
+  try {
+    const response = await request("run_quick_command", { command });
+    if (!response.success) {
+      renderQuickResult(response.error || "Команда завершилась з помилкою.");
+      renderFeedback(response.error || "Команда завершилась з помилкою.", "error");
+      return;
+    }
+    renderQuickResult(response.result);
+    renderFeedback(`Швидку команду ${command} виконано.`, "success");
+  } catch (error) {
+    renderQuickResult(error.message || "Не вдалося виконати швидку команду.");
+    renderFeedback(error.message || "Не вдалося виконати швидку команду.", "error");
+  } finally {
+    await loadState();
+    setBusy(false);
+  }
+}
+
 connectButton.addEventListener("click", async () => {
   await performAction("connect", { persistFirst: true });
 });
@@ -142,6 +209,14 @@ openLogsButton.addEventListener("click", async () => {
 
 refreshButton.addEventListener("click", async () => {
   await performAction("refresh_health", { persistFirst: true });
+});
+
+pingButton.addEventListener("click", async () => {
+  await runQuickCommand("ping");
+});
+
+pageStateButton.addEventListener("click", async () => {
+  await runQuickCommand("get_page_state");
 });
 
 [serverUrlInput, tokenInput, allowlistInput, debugModeInput].forEach((element) => {

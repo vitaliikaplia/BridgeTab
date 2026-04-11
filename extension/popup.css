@@ -142,6 +142,10 @@ h2 {
   margin-top: 12px;
 }
 
+.domain-meta {
+  margin-top: 10px;
+}
+
 .form-card {
   display: grid;
   gap: 12px;
@@ -202,6 +206,22 @@ textarea {
 
 .actions-secondary {
   grid-template-columns: 1fr;
+}
+
+.action-stack {
+  margin-top: 12px;
+}
+
+.quick-result {
+  margin: 12px 0 0;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid rgba(22, 17, 13, 0.12);
+  background: rgba(255, 251, 245, 0.88);
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 button {

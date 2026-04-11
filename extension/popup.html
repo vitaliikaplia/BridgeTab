@@ -21,6 +21,7 @@
         </div>
         <div class="status-meta">
           <p id="transportMeta" class="meta">Транспорт недоступний</p>
+          <p id="capabilitiesMeta" class="meta">Можливості bridge будуть показані тут.</p>
           <p id="lastCommand" class="meta">Команд ще не було</p>
         </div>
       </section>
@@ -34,6 +35,7 @@
         <p class="label">Поточна вкладка</p>
         <h2 id="tabTitle">Немає активної вкладки</h2>
         <p id="tabUrl" class="url">Відкрий вкладку, щоб перевірити її домен.</p>
+        <p id="domainMeta" class="meta domain-meta">Статус домену буде показано тут.</p>
         <p id="sessionMeta" class="meta session-meta">Немає активної bridge-сесії браузера.</p>
       </section>
 
@@ -68,6 +70,15 @@
 
       <section class="actions actions-secondary">
         <button id="refreshButton" class="ghost" type="button">Оновити статус</button>
+      </section>
+
+      <section class="card">
+        <p class="label">Швидкі перевірки</p>
+        <div class="actions actions-secondary action-stack">
+          <button id="pingButton" class="ghost" type="button">Ping bridge</button>
+          <button id="pageStateButton" class="ghost" type="button">Стан сторінки</button>
+        </div>
+        <pre id="quickResult" class="quick-result">Тут з’явиться результат швидкої перевірки.</pre>
       </section>
     </main>
 

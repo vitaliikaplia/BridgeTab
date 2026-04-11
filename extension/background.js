@@ -78,6 +78,74 @@ function normalizeError(error) {
   };
 }
 
+function deriveHttpBase(serverUrl) {
+  const wsUrl = new URL(serverUrl);
+  const protocol = wsUrl.protocol === "wss:" ? "https:" : "http:";
+  return `${protocol}//${wsUrl.host}`;
+}
+
+function getLogSnapshot(map, tabId = null) {
+  if (tabId != null) {
+    return {
+      scope: "tab",
+      tabId,
+      entries: map.get(tabId) || []
+    };
+  }
+
+  return {
+    scope: "all",
+    entriesByTab: Object.fromEntries(map.entries())
+  };
+}
+
+function clearLogMap(map, tabId = null) {
+  if (tabId != null) {
+    map.delete(tabId);
+    return;
+  }
+  map.clear();
+}
+
+async function fetchCapabilities() {
+  const settings = await getSettings();
+  if (!settings.serverUrl) {
+    throw new Error("Bridge URL is not configured");
+  }
+
+  const response = await fetch(`${deriveHttpBase(settings.serverUrl)}/capabilities`, {
+    method: "GET",
+    cache: "no-store"
+  });
+  if (!response.ok) {
+    throw new Error(`Capabilities request failed with status ${response.status}`);
+  }
+  return response.json();
+}
+
+async function clearServerLogs() {
+  const settings = await getSettings();
+  if (!settings.serverUrl || !settings.token) {
+    throw new Error("Bridge URL or token is missing");
+  }
+
+  const response = await fetch(`${deriveHttpBase(settings.serverUrl)}/logs/clear`, {
+    method: "POST",
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      token: settings.token
+    })
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.success === false) {
+    throw new Error(payload.error?.message || "Failed to clear server logs");
+  }
+  return payload;
+}
+
 async function withTab(tabId, fn) {
   const tab = await isTabAllowed(tabId);
   await ensureContentScript(tabId);
@@ -190,9 +258,25 @@ async function handleCommand(message) {
         effectiveTabId = await resolveTabId(tabId);
         result = await sendContentCommand(effectiveTabId, "click", args);
         break;
+      case "focus":
+        effectiveTabId = await resolveTabId(tabId);
+        result = await sendContentCommand(effectiveTabId, "focus", args);
+        break;
+      case "hover":
+        effectiveTabId = await resolveTabId(tabId);
+        result = await sendContentCommand(effectiveTabId, "hover", args);
+        break;
       case "type":
         effectiveTabId = await resolveTabId(tabId);
         result = await sendContentCommand(effectiveTabId, "type", args);
+        break;
+      case "clear":
+        effectiveTabId = await resolveTabId(tabId);
+        result = await sendContentCommand(effectiveTabId, "clear", args);
+        break;
+      case "select_option":
+        effectiveTabId = await resolveTabId(tabId);
+        result = await sendContentCommand(effectiveTabId, "select_option", args);
         break;
       case "press_keys":
         effectiveTabId = await resolveTabId(tabId);
@@ -236,6 +320,10 @@ async function handleCommand(message) {
         effectiveTabId = await resolveTabId(tabId);
         await isTabAllowed(effectiveTabId);
         result = networkLogs.get(effectiveTabId) || [];
+        break;
+      case "get_local_storage":
+        effectiveTabId = await resolveTabId(tabId);
+        result = await sendContentCommand(effectiveTabId, "get_local_storage", args);
         break;
       case "reload":
         effectiveTabId = await resolveTabId(tabId);
@@ -292,24 +380,87 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         } else if (message.action === "get_state") {
           const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
           let health = null;
+          let capabilities = null;
           try {
             health = await getBridgeHealth();
           } catch (_error) {
             health = null;
+          }
+          try {
+            capabilities = await fetchCapabilities();
+          } catch (_error) {
+            capabilities = null;
           }
           const settings = await getSettings();
           sendResponse({
             success: true,
             settings,
             health,
+            capabilities,
             activeTab: activeTab
               ? { title: activeTab.title || "", url: activeTab.url || "", tabId: activeTab.id || null }
               : null
           });
+        } else if (message.action === "get_diagnostics") {
+          const settings = await getSettings();
+          const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+          let health = null;
+          let capabilities = null;
+          try {
+            health = await getBridgeHealth();
+          } catch (_error) {
+            health = null;
+          }
+          try {
+            capabilities = await fetchCapabilities();
+          } catch (_error) {
+            capabilities = null;
+          }
+          sendResponse({
+            success: true,
+            settings,
+            health,
+            capabilities,
+            activeTab: activeTab
+              ? { title: activeTab.title || "", url: activeTab.url || "", tabId: activeTab.id || null }
+              : null,
+            consoleLogs: getLogSnapshot(consoleLogs, activeTab?.id || null),
+            networkLogs: getLogSnapshot(networkLogs, activeTab?.id || null)
+          });
+        } else if (message.action === "clear_diagnostics") {
+          const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+          if (message.scope === "browser") {
+            clearLogMap(consoleLogs, message.tabOnly ? activeTab?.id || null : null);
+            clearLogMap(networkLogs, message.tabOnly ? activeTab?.id || null : null);
+            sendResponse({ success: true, cleared: true });
+          } else if (message.scope === "server") {
+            const payload = await clearServerLogs();
+            sendResponse({ success: true, result: payload });
+          } else {
+            throw new Error("Unknown diagnostics scope");
+          }
+        } else if (message.action === "run_quick_command") {
+          const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+          if (!activeTab?.id) {
+            throw new Error("No active tab");
+          }
+          const result = await handleCommand({
+            requestId: `popup-${Date.now()}`,
+            command: message.command,
+            tabId: activeTab.id,
+            args: message.args || {}
+          });
+          sendResponse({ success: result.success, result: result.result, error: result.error?.message || null });
         } else if (message.action === "refresh_health") {
           const health = await getBridgeHealth();
           const settings = await getSettings();
-          sendResponse({ success: true, health, settings });
+          let capabilities = null;
+          try {
+            capabilities = await fetchCapabilities();
+          } catch (_error) {
+            capabilities = null;
+          }
+          sendResponse({ success: true, health, settings, capabilities });
         } else if (message.action === "allow_current_domain") {
           const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
           if (!activeTab?.url) {

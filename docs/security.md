@@ -20,7 +20,7 @@ The extension does not automatically open a bridge session. The user must click 
 
 - Domains are checked in the extension before tab commands run.
 - Default starter rules are `localhost` and `*.test`.
-- The popup can add the current domain to the allowlist.
+- The popup can add the current domain to the allowlist and shows whether the active tab is currently allowed.
 
 ## Risk boundaries in MVP
 
@@ -28,4 +28,4 @@ The extension does not automatically open a bridge session. The user must click 
 - No cloud sync
 - No arbitrary JavaScript evaluation
 - Audit logging is local and avoids sensitive payload recording
-
+- `get_local_storage` is explicit and returns only storage values for the selected origin; it does not enable arbitrary script execution

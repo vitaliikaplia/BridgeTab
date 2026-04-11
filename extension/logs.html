@@ -25,22 +25,144 @@
         background: rgba(255, 251, 245, 0.88);
         box-shadow: 0 20px 60px rgba(54, 39, 24, 0.12);
       }
+
+      .stack {
+        display: grid;
+        gap: 18px;
+      }
+
+      .toolbar {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-bottom: 14px;
+      }
     </style>
   </head>
   <body>
     <main>
       <section class="hero">
         <p class="eyebrow">Діагностика Bridge</p>
-        <h1>Поточний знімок локального сховища</h1>
-        <p class="lede">Тут показані локальні налаштування extension. Audit-логи сервера залишаються на стороні localhost bridge.</p>
+        <h1>Локальна і серверна діагностика</h1>
+        <p class="lede">Тут показані налаштування extension, health/capabilities bridge, audit-логи сервера й browser-side console/network події для активної вкладки.</p>
       </section>
-      <section class="card">
-        <pre id="dump"></pre>
-      </section>
+      <div class="toolbar">
+        <button id="refreshButton" class="ghost" type="button">Оновити</button>
+        <button id="clearBrowserButton" class="ghost" type="button">Очистити browser logs</button>
+        <button id="clearServerButton" class="ghost" type="button">Очистити server logs</button>
+      </div>
+      <div class="stack">
+        <section class="card">
+          <p class="label">Health</p>
+          <pre id="healthDump"></pre>
+        </section>
+        <section class="card">
+          <p class="label">Capabilities</p>
+          <pre id="capabilitiesDump"></pre>
+        </section>
+        <section class="card">
+          <p class="label">Server audit logs</p>
+          <pre id="serverLogsDump"></pre>
+        </section>
+        <section class="card">
+          <p class="label">Active tab console logs</p>
+          <pre id="consoleLogsDump"></pre>
+        </section>
+        <section class="card">
+          <p class="label">Active tab network errors</p>
+          <pre id="networkLogsDump"></pre>
+        </section>
+        <section class="card">
+          <p class="label">Extension storage</p>
+          <pre id="storageDump"></pre>
+        </section>
+      </div>
     </main>
     <script type="module">
-      const data = await chrome.storage.local.get(null);
-      document.getElementById("dump").textContent = JSON.stringify(data, null, 2);
+      const refreshButton = document.getElementById("refreshButton");
+      const clearBrowserButton = document.getElementById("clearBrowserButton");
+      const clearServerButton = document.getElementById("clearServerButton");
+      const healthDump = document.getElementById("healthDump");
+      const capabilitiesDump = document.getElementById("capabilitiesDump");
+      const serverLogsDump = document.getElementById("serverLogsDump");
+      const consoleLogsDump = document.getElementById("consoleLogsDump");
+      const networkLogsDump = document.getElementById("networkLogsDump");
+      const storageDump = document.getElementById("storageDump");
+
+      async function render() {
+        const diagnostics = await chrome.runtime.sendMessage({
+          type: "popup_action",
+          action: "get_diagnostics"
+        });
+
+        if (!diagnostics.success) {
+          throw new Error(diagnostics.error || "Не вдалося отримати diagnostics");
+        }
+
+        storageDump.textContent = JSON.stringify(diagnostics.settings, null, 2);
+        healthDump.textContent = diagnostics.health
+          ? JSON.stringify(diagnostics.health, null, 2)
+          : "Сервер зараз недоступний.";
+        capabilitiesDump.textContent = diagnostics.capabilities
+          ? JSON.stringify(diagnostics.capabilities, null, 2)
+          : "Capabilities зараз недоступні.";
+        consoleLogsDump.textContent = JSON.stringify(diagnostics.consoleLogs, null, 2);
+        networkLogsDump.textContent = JSON.stringify(diagnostics.networkLogs, null, 2);
+
+        if (!diagnostics.settings.token) {
+          serverLogsDump.textContent = "Щоб читати audit-логи сервера, збережи session token.";
+          return;
+        }
+
+        if (!diagnostics.settings.serverUrl) {
+          serverLogsDump.textContent = "Bridge URL ще не збережено.";
+          return;
+        }
+
+        try {
+          const wsUrl = new URL(diagnostics.settings.serverUrl);
+          const protocol = wsUrl.protocol === "wss:" ? "https:" : "http:";
+          const baseUrl = `${protocol}//${wsUrl.host}`;
+          const logsResponse = await fetch(`${baseUrl}/logs`, {
+            method: "GET",
+            cache: "no-store",
+            headers: {
+              "X-Bridge-Token": diagnostics.settings.token
+            }
+          });
+          const logs = await logsResponse.json();
+          serverLogsDump.textContent = JSON.stringify(logs, null, 2);
+        } catch (error) {
+          serverLogsDump.textContent = `Не вдалося отримати /logs: ${error.message}`;
+        }
+      }
+
+      refreshButton.addEventListener("click", () => {
+        render().catch((error) => {
+          healthDump.textContent = `Не вдалося оновити діагностику: ${error.message}`;
+        });
+      });
+
+      clearBrowserButton.addEventListener("click", async () => {
+        await chrome.runtime.sendMessage({
+          type: "popup_action",
+          action: "clear_diagnostics",
+          scope: "browser",
+          tabOnly: true
+        });
+        await render();
+      });
+
+      clearServerButton.addEventListener("click", async () => {
+        await chrome.runtime.sendMessage({
+          type: "popup_action",
+          action: "clear_diagnostics",
+          scope: "server"
+        });
+        await render();
+      });
+
+      render();
     </script>
   </body>
 </html>

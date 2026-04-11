@@ -27,5 +27,46 @@
     "args": {
       "selector": "[data-testid='submit']"
     }
+  },
+  {
+    "token": "YOUR_TOKEN",
+    "tabId": 123,
+    "command": "focus",
+    "args": {
+      "selector": "input[name='email']"
+    }
+  },
+  {
+    "token": "YOUR_TOKEN",
+    "tabId": 123,
+    "command": "clear",
+    "args": {
+      "selector": "input[name='email']"
+    }
+  },
+  {
+    "token": "YOUR_TOKEN",
+    "tabId": 123,
+    "command": "hover",
+    "args": {
+      "selector": "[data-testid='menu-trigger']"
+    }
+  },
+  {
+    "token": "YOUR_TOKEN",
+    "tabId": 123,
+    "command": "select_option",
+    "args": {
+      "selector": "select[name='country']",
+      "value": "ua"
+    }
+  },
+  {
+    "token": "YOUR_TOKEN",
+    "tabId": 123,
+    "command": "get_local_storage",
+    "args": {
+      "keys": ["token", "theme"]
+    }
   }
 ]

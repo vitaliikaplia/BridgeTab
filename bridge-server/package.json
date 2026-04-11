@@ -8,11 +8,11 @@
   },
   "scripts": {
     "start": "node src/cli.js",
-    "check": "node --check src/*.js"
+    "check": "node --check src/*.js && node --test test/*.test.js",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "express": "^4.21.2",
     "ws": "^8.18.0"
   }
 }
-

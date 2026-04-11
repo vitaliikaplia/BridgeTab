@@ -22,9 +22,13 @@ class Logger {
   list() {
     return this.entries;
   }
+
+  clear() {
+    this.entries = [];
+    fs.writeFileSync(this.logPath, "", "utf8");
+  }
 }
 
 module.exports = {
   Logger
 };
-

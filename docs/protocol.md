@@ -2,6 +2,8 @@
 
 All commands use the same JSON envelope over `POST /command`.
 
+Bridge capabilities can also be inspected over `GET /capabilities`.
+
 ## Request
 
 ```json
@@ -39,14 +41,19 @@ All commands use the same JSON envelope over `POST /command`.
 - `get_page_state`
 - `query`
 - `click`
+- `focus`
 - `type`
+- `clear`
 - `press_keys`
 - `wait_for`
 - `scroll_into_view`
+- `hover`
+- `select_option`
 - `screenshot_page`
 - `screenshot_element`
 - `get_console_logs`
 - `get_network_errors`
+- `get_local_storage`
 - `reload`
 
 ## Command notes
@@ -70,6 +77,49 @@ Args:
 {
   "selector": "button.primary",
   "all": true
+}
+```
+
+### `hover`
+
+Args:
+
+```json
+{
+  "selector": "[data-menu='account']"
+}
+```
+
+### `select_option`
+
+Args:
+
+```json
+{
+  "selector": "select[name='country']",
+  "value": "ua"
+}
+```
+
+You may use `value`, `label`, or `index`.
+
+### `focus`
+
+Args:
+
+```json
+{
+  "selector": "input[name='email']"
+}
+```
+
+### `clear`
+
+Args:
+
+```json
+{
+  "selector": "input[name='email']"
 }
 ```
 
@@ -160,6 +210,21 @@ Returns failed requests and HTTP `4xx/5xx` responses captured by the extension:
 ]
 ```
 
+### `get_local_storage`
+
+Returns the full `localStorage` snapshot for the current origin, or only requested keys:
+
+```json
+{
+  "origin": "https://example.test",
+  "count": 2,
+  "storage": {
+    "token": "abc",
+    "theme": "dark"
+  }
+}
+```
+
 ### `screenshot_page`
 
 Returns a PNG path created by the bridge server:
@@ -180,3 +245,11 @@ BridgeTab returns compact structured errors such as:
   "message": "Element not found"
 }
 ```
+
+Common protocol-level codes:
+
+- `BAD_REQUEST`
+- `UNAUTHORIZED`
+- `NO_ACTIVE_SESSION`
+- `COMMAND_TIMEOUT`
+- `COMMAND_FAILED`
