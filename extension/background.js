@@ -506,7 +506,7 @@ async function handleCommand(message) {
       case "reload":
         effectiveTabId = await resolveTabId(tabId);
         result = await runInteractiveTabCommand(effectiveTabId, "reload", args, async () => {
-          await withTab(effectiveTabId, async () => chrome.tabs.reload(effectiveTabId));
+          await withTab(effectiveTabId, async () => chrome.tabs.reload(effectiveTabId, { bypassCache: true }));
           const settledState = await waitForStablePage(effectiveTabId, {
             timeoutMs: args.timeoutMs || 15000
           });
